@@ -196,7 +196,8 @@ function homeV(){
   h+=`<div class="card"><div class="row"><input id="novoIm" placeholder="Nome do imóvel (ex.: Apto 43)"><button class="pri" style="flex:none" data-a="novoIm">Criar</button></div></div>`;
   if(!loaded) h+=`<p class="mut">Carregando…</p>`; else if(!imoveis.length) h+=`<p class="mut">Nenhum imóvel ainda. Crie o primeiro acima.</p>`;
   h+='<div class="list">'+imoveis.slice().sort((a,b)=>(b.atualizado||0)-(a.atualizado||0)).map(im=>`<div class="card" data-a="abrirIm" data-id="${im.id}"><div style="flex:1"><b>${esc(im.nome)}</b><div class="mut">${im.comodos.length} cômodo(s) · ${new Date(im.atualizado||im.criado).toLocaleDateString('pt-BR')}</div></div><span style="font-size:22px;color:#9aa3b2">›</span></div>`).join('')+'</div>';
-  h+=`<div style="margin-top:18px"><label class="ghostbtn">Abrir cópia de segurança (.json)<input type="file" id="imp" accept=".json,application/json" style="display:none"></label></div>`;
+  if(imoveis.length) h+=`<div style="margin-top:18px"><button class="ghost" data-a="jsonTodos">Baixar cópia de todos os imóveis (.json)</button></div>`;
+  h+=`<div style="margin-top:4px"><label class="ghostbtn">Abrir cópia de segurança (.json)<input type="file" id="imp" accept=".json,application/json" style="display:none"></label></div>`;
   return h;
 }
 function imV(){
@@ -425,8 +426,10 @@ function bind(){
   const sync=()=>{linkForm={a:$('#lA').value,ai:$('#lAi').value,b:$('#lB').value,bi:$('#lBi').value,esp:$('#lE').value}};
   ['lA','lB'].forEach(id=>{const e=$('#'+id);if(e)e.addEventListener('change',()=>{sync();if(id==='lA')linkForm.ai='';else linkForm.bi='';render()})});
   ['lAi','lBi','lE'].forEach(id=>{const e=$('#'+id);if(e)e.addEventListener('change',sync)});
-  const imp=$('#imp');if(imp)imp.addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const x=norm(JSON.parse(await f.text()));if(!x.id||!x.comodos)throw 0;
-    const i=imoveis.findIndex(y=>y.id===x.id);if(i>=0)imoveis[i]=x;else imoveis.push(x);save(x);view={t:'im',im:x.id};render();toast('Imóvel aberto.')}catch(err){toast('Arquivo não reconhecido.')}});
+  const imp=$('#imp');if(imp)imp.addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const j=JSON.parse(await f.text());
+    const lista=(Array.isArray(j.imoveis)?j.imoveis:[j]).filter(x=>x&&x.id&&Array.isArray(x.comodos)).map(norm);if(!lista.length)throw 0;
+    lista.forEach(x=>{const i=imoveis.findIndex(y=>y.id===x.id);if(i>=0)imoveis[i]=x;else imoveis.push(x);save(x)});
+    if(lista.length===1){view={t:'im',im:lista[0].id};toast('Imóvel aberto.')}else{view={t:'home'};toast(lista.length+' imóveis abertos.')}render()}catch(err){toast('Arquivo não reconhecido.')}e.target.value=''});
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;act(b.dataset.a,b)});
 function act(a,b){const im=cur();
@@ -446,6 +449,7 @@ function act(a,b){const im=cur();
       im.ligacoes=im.ligacoes.filter(l=>!((l.a===A&&l.ai===ai)||(l.b===B&&l.bi===bi)));im.ligacoes.push({id:uid(),a:A,ai,b:B,bi,esp:Math.round(esp)});linkForm=null;save(im);toast('Cômodos ligados.');break}
     case 'delLink':im.ligacoes=im.ligacoes.filter(l=>l.id!==b.dataset.id);save(im);break;
     case 'pdf':pdf();return; case 'dxf':dxf();return; case 'relatorio':relatorio();return;
+    case 'jsonTodos':baixar('medir imovel - todos os imoveis - '+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({app:'Medir imóvel',data:new Date().toISOString(),imoveis},null,1));return;
     case 'json':baixar(slug(im.nome)+' - medidas.json',JSON.stringify(im,null,1));return;
     case 'askDelIm':confirmDel='im';break; case 'askDelRoom':confirmDel='room';break; case 'cancelDel':confirmDel=null;break;
     case 'delIm':removeIm(im);view={t:'home'};confirmDel=null;break;
