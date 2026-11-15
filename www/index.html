@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Medir imóvel</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1f3a5f">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{--ink:#1d2433;--mut:#5b6474;--line:#e2e5eb;--acc:#1f3a5f;--acc2:#2b5487;--ok:#1f7a4d;--warn:#b26b00;--bad:#b42318;--door:#d9822b;--win:#2f80d1;--arm:#8b7d63;--bg:#f6f7f9}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--bg);-webkit-tap-highlight-color:transparent}
+main{max-width:720px;margin:0 auto;padding:12px 12px 90px}
+h1{font-size:21px;margin:6px 0 2px;color:var(--acc)} h2{font-size:17px;margin:18px 0 8px;color:var(--acc)}
+p.mut,.mut{color:var(--mut);font-size:14px;line-height:1.45}
+button{font:inherit;border:0;border-radius:10px;padding:12px 14px;cursor:pointer;background:#e9edf3;color:var(--ink);font-weight:600}
+button.pri{background:var(--acc);color:#fff} button.ghost{background:transparent;color:var(--acc2);padding:8px 6px}
+button.danger{background:#fde8e6;color:var(--bad)} button:disabled{opacity:.45}
+input{font:inherit;padding:12px;border:1px solid #cdd3dc;border-radius:10px;width:100%;background:#fff}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;margin:10px 0}
+.row{display:flex;gap:8px;align-items:center} .row>*{flex:1}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px} .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.top{display:flex;align-items:center;gap:6px;margin-bottom:4px} .top h1{flex:1;margin:0;font-size:19px}
+.list .card{display:flex;gap:12px;align-items:center;cursor:pointer}
+.mini{width:84px;height:64px;flex:none;background:#fafbfc;border-radius:8px;border:1px solid var(--line)}
+.badge{display:inline-block;font-size:12px;font-weight:700;padding:3px 8px;border-radius:20px}
+.b-ok{background:#e3f4ea;color:var(--ok)} .b-warn{background:#fff1d6;color:var(--warn)} .b-bad{background:#fde8e6;color:var(--bad)} .b-run{background:#e8eef7;color:var(--acc2)}
+#draw{width:100%;height:42vh;min-height:230px;background:#fff;border:1px solid var(--line);border-radius:14px;display:block;touch-action:manipulation}
+.status{font-size:14px;line-height:1.45;padding:10px 12px;border-radius:12px;margin:8px 0;background:#eef3fa;color:var(--acc)}
+.status.ok{background:#e3f4ea;color:var(--ok)} .status.warn{background:#fff1d6;color:#7a4a00} .status.bad{background:#fde8e6;color:var(--bad)}
+.entry{position:sticky;bottom:0;background:var(--bg);padding:8px 0 10px;border-top:1px solid var(--line);z-index:5}
+.big{font-size:26px;font-weight:700;text-align:center;letter-spacing:.5px}
+.prev{font-size:13px;color:var(--mut);text-align:center;min-height:18px;margin:4px 0}
+.t-parede{background:#e9edf3} .t-porta{background:#fbe7d3;color:#8a4a0e} .t-janela{background:#dcebfa;color:#174f87} .t-armario{background:#eee8dc;color:#5c513c}
+.turn{background:var(--acc2);color:#fff;font-size:15px}
+.walls{font-size:14px} .walls div{padding:7px 0;border-bottom:1px solid var(--line);display:flex;gap:8px}
+.walls b{color:var(--acc);min-width:22px}
+.chip{display:inline-block;padding:2px 7px;border-radius:7px;margin:1px 2px;font-size:13px}
+.toast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:#1d2433;color:#fff;padding:10px 14px;border-radius:10px;font-size:14px;z-index:20;max-width:90%}
+.mic.on{background:var(--bad);color:#fff}
+.help{font-size:13px;color:var(--mut);line-height:1.5}
+.res table{width:100%;border-collapse:collapse;font-size:14px} .res td{padding:6px 4px;border-bottom:1px solid var(--line)}
+.confirm{background:#fff7f6;border:1px solid #f3c7c2}
+.tabs{display:flex;gap:6px;margin:8px 0 4px}.tabs button{flex:1;padding:10px 6px;font-size:14px;background:#e9edf3}.tabs button.on{background:var(--acc);color:#fff}
+.grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.grid5 button{padding:12px 2px;font-size:13px}.grid3{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:6px}
+.t-passagem{background:#dff2e7;color:#16603b}
+.issue{background:#fff;border:1px solid var(--line);border-left:5px solid #8a93a3;border-radius:10px;padding:10px 12px;margin:8px 0;font-size:14px;line-height:1.45}
+.issue.bad{border-left-color:var(--bad)}.issue.warn{border-left-color:var(--warn)}
+.planbox{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:auto}.planbox svg{width:100%;height:auto;min-height:260px;display:block}
+.frm{display:grid;gap:6px;margin:8px 0}.frm label{font-size:13px;color:var(--mut);margin-top:4px}
+select{font:inherit;padding:11px;border:1px solid #cdd3dc;border-radius:10px;background:#fff;width:100%}
+.wide{width:100%;margin-top:8px}.linkc{display:flex;gap:8px;align-items:center;font-size:14px}
+.ghostbtn{display:inline-block;color:var(--acc2);font-weight:600;padding:8px 6px;cursor:pointer}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<div id="toast" class="toast" style="display:none"></div>
+<script src="vendor/jspdf.umd.min.js"></script>
+<script src="vendor/jszip.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
