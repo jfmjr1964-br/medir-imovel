@@ -176,6 +176,7 @@ function svgPlan(im,res,opt={}){
     g.segs.forEach(s=>{const p=rot(t,s.x1,s.y1),q=rot(t,s.x2,s.y2);const dash=s.tipo==='porta'||s.tipo==='armario'||s.tipo==='passagem'?`stroke-dasharray="${sw*2.4} ${sw*1.6}"`:'';
       if(marked[c.id]&&marked[c.id].has(s.wi+1)) o+=`<line x1="${p[0]}" y1="${-p[1]}" x2="${q[0]}" y2="${-q[1]}" stroke="#f04438" stroke-opacity=".35" stroke-width="${sw*6}" stroke-linecap="round"/>`;
       o+=`<line x1="${p[0]}" y1="${-p[1]}" x2="${q[0]}" y2="${-q[1]}" stroke="${COL[s.tipo]}" stroke-width="${s.tipo==='janela'?sw*2.2:sw}" stroke-linecap="square" ${dash}/>`});
+    (c.moveis||[]).forEach(m=>{const p=rot(t,m.x,m.y);o+=svgMovel(m,p[0],p[1],(m.rot||0)+t.th*180/Math.PI,fs*0.7,{label:false})});
     const b=bbox(g.segs);const cc=rot(t,(b[0]+b[2])/2,(b[1]+b[3])/2);
     o+=`<text x="${cc[0]}" y="${-cc[1]}" font-size="${fs}" text-anchor="middle" dominant-baseline="central" fill="#1f3a5f" font-weight="700" font-family="sans-serif">${esc(c.nome)}</text>`;
     if(opt.numeros){const k=g.inLeft?1:-1;g.wallStarts.forEach((p0,i)=>{if(!c.paredes[i].pecas.length)return;const ss=g.segs.filter(s=>s.wi===i);const m=[(ss[0].x1+ss[ss.length-1].x2)/2-ss[0].hy*k*fs*1.2,(ss[0].y1+ss[ss.length-1].y2)/2+ss[0].hx*k*fs*1.2];const pp=rot(t,...m);
@@ -185,7 +186,7 @@ function svgPlan(im,res,opt={}){
 }
 
 /* ===================== telas ===================== */
-function render(){const a=$('#app'); if(view.t==='home')a.innerHTML=homeV(); else if(view.t==='im')a.innerHTML=imV(); else a.innerHTML=roomV(); bind()}
+function render(){const a=$('#app'); if(view.t==='home')a.innerHTML=homeV(); else if(view.t==='im')a.innerHTML=imV(); else if(view.t==='moveis')a.innerHTML=moveisV(); else a.innerHTML=roomV(); bind(); if(view.t==='moveis')bindMoveis()}
 function statusBadge(c){
   if(!c.paredes.some(w=>w.pecas.length)) return '<span class="badge b-run">vazio</span>';
   if(!c.fechado) return '<span class="badge b-run">medindo</span>';
@@ -208,7 +209,7 @@ function imV(){
   if(imTab==='comodos'){
     h+=`<div class="card"><div class="row"><input id="novoRoom" placeholder="Novo cômodo (ex.: Sala)"><button class="pri" style="flex:none" data-a="novoRoom">Adicionar</button></div></div>`;
     h+='<div class="list">'+im.comodos.map(c=>{const g=geo(c);const b=bbox(g.segs);const dims=g.segs.length?`${fm(Math.round((b[2]-b[0])*100))} × ${fm(Math.round((b[3]-b[1])*100))} m`:'';
-      return `<div class="card" data-a="abrirRoom" data-id="${c.id}">${g.segs.length?svgRoom(c,{mini:1}):'<div class="mini"></div>'}<div style="flex:1"><b>${esc(c.nome)}</b><div class="mut">${dims}</div>${statusBadge(c)}</div></div>`}).join('')+'</div>';
+      return `<div class="card" data-a="abrirRoom" data-id="${c.id}">${g.segs.length?svgRoom(c,{mini:1}):'<div class="mini"></div>'}<div style="flex:1"><b>${esc(c.nome)}</b><div class="mut">${dims}${(c.moveis||[]).length?` · ${c.moveis.length} móvel(is)`:''}</div>${statusBadge(c)}</div></div>`}).join('')+'</div>';
   }
   if(imTab==='planta'){
     const sv=svgPlan(im,res,{id:'plan',numeros:true,marcar:true});
@@ -253,7 +254,8 @@ function roomV(){
     h+=`<div class="status ${ci.nivel}"><b>${msg}</b><div class="res"><table>
       <tr><td>Um sentido</td><td>${fm(g.tot.E)} m<br><span class="mut">paredes ${g.side.E.join(', ')||'–'}</span></td><td>${fm(g.tot.W)} m<br><span class="mut">paredes ${g.side.W.join(', ')||'–'}</span></td><td><b>${ci.dW} cm</b></td></tr>
       <tr><td>Outro sentido</td><td>${fm(g.tot.N)} m<br><span class="mut">paredes ${g.side.N.join(', ')||'–'}</span></td><td>${fm(g.tot.S)} m<br><span class="mut">paredes ${g.side.S.join(', ')||'–'}</span></td><td><b>${ci.dL} cm</b></td></tr></table></div></div>
-      <div class="row"><button data-a="reabrir">Continuar medindo</button><button class="pri" data-a="voltarIm">Pronto</button></div>`;
+      <button class="pri wide" data-a="abrirMoveis" style="margin-bottom:8px">Móveis${(c.moveis||[]).length?` (${c.moveis.length})`:''}</button>
+      <div class="row"><button data-a="reabrir">Continuar medindo</button><button data-a="voltarIm">Pronto</button></div>`;
   } else if(hasAny){const ex=expected(c);const nW=c.paredes.length;
     let st=`Parede <b>${nW}</b> em andamento. `; if(ex) st+=`Se esta for a última parede, ela deve medir cerca de <b>${fm(ex.total)} m</b>.`; else if(nW>=3) st+=`Até o ponto de início faltam ${fm(Math.round(ci.g.gap))} m em linha reta.`;
     h+=`<div class="status">${st}</div>`}
@@ -433,6 +435,7 @@ function bind(){
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;act(b.dataset.a,b)});
 function act(a,b){const im=cur();
+  if(typeof actMoveis==='function'&&actMoveis(a,b)){render();return}
   switch(a){
     case 'novoIm':{const n=$('#novoIm').value.trim();if(!n){toast('Digite o nome do imóvel.');return}const x={id:uid(),nome:n,criado:Date.now(),comodos:[],ligacoes:[]};imoveis.push(x);save(x);view={t:'im',im:x.id};imTab='comodos';break}
     case 'abrirIm':view={t:'im',im:b.dataset.id};confirmDel=null;imTab='comodos';linkForm=null;break;
