@@ -1,0 +1,931 @@
+{
+ "app": "Medir imóvel",
+ "imoveis": [
+  {
+   "id": "apto-medido",
+   "nome": "Apartamento (medidas de 12 e 13/11)",
+   "criado": 1794750000000,
+   "atualizado": 1794750000000,
+   "comodos": [
+    {
+     "id": "hall",
+     "nome": "Hall",
+     "paredes": [
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 2
+        },
+        {
+         "tipo": "porta",
+         "cm": 92
+        },
+        {
+         "tipo": "parede",
+         "cm": 26
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 9
+        },
+        {
+         "tipo": "porta",
+         "cm": 70
+        },
+        {
+         "tipo": "parede",
+         "cm": 81
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 21
+        },
+        {
+         "tipo": "passagem",
+         "cm": 80
+        },
+        {
+         "tipo": "parede",
+         "cm": 19
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 160
+        }
+       ],
+       "virada": null
+      }
+     ],
+     "fechado": true
+    },
+    {
+     "id": "sala",
+     "nome": "Sala",
+     "paredes": [
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 370
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 190
+        },
+        {
+         "tipo": "porta",
+         "cm": 92
+        },
+        {
+         "tipo": "parede",
+         "cm": 5
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 130
+        }
+       ],
+       "virada": "D"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 430
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 30
+        },
+        {
+         "tipo": "janela",
+         "cm": 280
+        },
+        {
+         "tipo": "parede",
+         "cm": 21
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 715
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 11
+        },
+        {
+         "tipo": "passagem",
+         "cm": 80
+        }
+       ],
+       "virada": null
+      }
+     ],
+     "fechado": true
+    },
+    {
+     "id": "corr",
+     "nome": "Corredor",
+     "paredes": [
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 82
+        },
+        {
+         "tipo": "porta",
+         "cm": 80
+        },
+        {
+         "tipo": "parede",
+         "cm": 74
+        },
+        {
+         "tipo": "porta",
+         "cm": 80
+        },
+        {
+         "tipo": "parede",
+         "cm": 6
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 107
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 36
+        },
+        {
+         "tipo": "porta",
+         "cm": 90
+        },
+        {
+         "tipo": "parede",
+         "cm": 35
+        },
+        {
+         "tipo": "porta",
+         "cm": 90
+        },
+        {
+         "tipo": "parede",
+         "cm": 72
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 6
+        },
+        {
+         "tipo": "porta",
+         "cm": 92
+        },
+        {
+         "tipo": "parede",
+         "cm": 9
+        }
+       ],
+       "virada": null
+      }
+     ],
+     "fechado": true
+    },
+    {
+     "id": "q2",
+     "nome": "Quarto 2",
+     "paredes": [
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 408
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 79
+        },
+        {
+         "tipo": "janela",
+         "cm": 145
+        },
+        {
+         "tipo": "parede",
+         "cm": 77
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 348
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "armario",
+         "cm": 196
+        }
+       ],
+       "virada": "D"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 65
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 6
+        },
+        {
+         "tipo": "porta",
+         "cm": 90
+        },
+        {
+         "tipo": "parede",
+         "cm": 9
+        }
+       ],
+       "virada": null
+      }
+     ],
+     "fechado": true
+    },
+    {
+     "id": "q1",
+     "nome": "Quarto 1",
+     "paredes": [
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 50
+        },
+        {
+         "tipo": "armario",
+         "cm": 155
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 402
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 77
+        },
+        {
+         "tipo": "janela",
+         "cm": 145
+        },
+        {
+         "tipo": "parede",
+         "cm": 75
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 410
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 8
+        },
+        {
+         "tipo": "porta",
+         "cm": 90
+        }
+       ],
+       "virada": null
+      }
+     ],
+     "fechado": true
+    },
+    {
+     "id": "banh",
+     "nome": "Banheiro",
+     "paredes": [
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 83
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 147
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 18
+        }
+       ],
+       "virada": "D"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 100
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 13
+        }
+       ],
+       "virada": "D"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 13
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 75
+        },
+        {
+         "tipo": "janela",
+         "cm": 102
+        },
+        {
+         "tipo": "parede",
+         "cm": 5
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 238
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 18
+        }
+       ],
+       "virada": "D"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 27
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 38
+        },
+        {
+         "tipo": "porta",
+         "cm": 80
+        }
+       ],
+       "virada": null
+      }
+     ],
+     "fechado": true
+    },
+    {
+     "id": "esc",
+     "nome": "Escritório",
+     "paredes": [
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 28
+        },
+        {
+         "tipo": "armario",
+         "cm": 133
+        },
+        {
+         "tipo": "parede",
+         "cm": 11
+        }
+       ],
+       "virada": "D"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 262
+        }
+       ],
+       "virada": "D"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 35
+        },
+        {
+         "tipo": "porta",
+         "cm": 68
+        },
+        {
+         "tipo": "parede",
+         "cm": 24
+        },
+        {
+         "tipo": "janela",
+         "cm": 118
+        },
+        {
+         "tipo": "parede",
+         "cm": 7
+        }
+       ],
+       "virada": "D"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 265
+        }
+       ],
+       "virada": "D"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 10
+        },
+        {
+         "tipo": "porta",
+         "cm": 72
+        }
+       ],
+       "virada": null
+      }
+     ],
+     "fechado": true
+    },
+    {
+     "id": "b2",
+     "nome": "Banheiro 2",
+     "paredes": [
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 5
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 24
+        }
+       ],
+       "virada": "D"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 20
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 5
+        }
+       ],
+       "virada": "D"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 128
+        }
+       ],
+       "virada": "D"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 30
+        },
+        {
+         "tipo": "janela",
+         "cm": 70
+        }
+       ],
+       "virada": "D"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 12
+        },
+        {
+         "tipo": "porta",
+         "cm": 60
+        },
+        {
+         "tipo": "parede",
+         "cm": 85
+        }
+       ],
+       "virada": "D"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "porta",
+         "cm": 68
+        }
+       ],
+       "virada": null
+      }
+     ],
+     "fechado": true
+    },
+    {
+     "id": "coz",
+     "nome": "Cozinha",
+     "paredes": [
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 95
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 169
+        },
+        {
+         "tipo": "janela",
+         "cm": 177
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 72
+        },
+        {
+         "tipo": "porta",
+         "cm": 72
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 15
+        }
+       ],
+       "virada": "D"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 101
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 328
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 74
+        },
+        {
+         "tipo": "porta",
+         "cm": 80
+        }
+       ],
+       "virada": null
+      }
+     ],
+     "fechado": true
+    },
+    {
+     "id": "area",
+     "nome": "Área de serviço",
+     "paredes": [
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 71
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "janela",
+         "cm": 332
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 13
+        },
+        {
+         "tipo": "porta",
+         "cm": 70
+        },
+        {
+         "tipo": "parede",
+         "cm": 75
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 4
+        },
+        {
+         "tipo": "janela",
+         "cm": 122
+        },
+        {
+         "tipo": "parede",
+         "cm": 26
+        },
+        {
+         "tipo": "janela",
+         "cm": 102
+        },
+        {
+         "tipo": "parede",
+         "cm": 80
+        }
+       ],
+       "virada": "E"
+      },
+      {
+       "pecas": [
+        {
+         "tipo": "parede",
+         "cm": 15
+        },
+        {
+         "tipo": "porta",
+         "cm": 72
+        }
+       ],
+       "virada": null
+      }
+     ],
+     "fechado": true
+    }
+   ],
+   "ligacoes": [
+    {
+     "id": "l0",
+     "a": "hall",
+     "ai": "1-1",
+     "b": "coz",
+     "bi": "6-1",
+     "esp": 17
+    },
+    {
+     "id": "l1",
+     "a": "hall",
+     "ai": "2-1",
+     "b": "sala",
+     "bi": "6-1",
+     "esp": 15
+    },
+    {
+     "id": "l2",
+     "a": "sala",
+     "ai": "1-1",
+     "b": "corr",
+     "bi": "3-1",
+     "esp": 16
+    },
+    {
+     "id": "l3",
+     "a": "corr",
+     "ai": "0-1",
+     "b": "banh",
+     "bi": "10-1",
+     "esp": 17
+    },
+    {
+     "id": "l4",
+     "a": "corr",
+     "ai": "0-3",
+     "b": "esc",
+     "bi": "4-1",
+     "esp": 17
+    },
+    {
+     "id": "l5",
+     "a": "corr",
+     "ai": "2-1",
+     "b": "q1",
+     "bi": "4-1",
+     "esp": 17
+    },
+    {
+     "id": "l6",
+     "a": "corr",
+     "ai": "2-3",
+     "b": "q2",
+     "bi": "5-1",
+     "esp": 17
+    },
+    {
+     "id": "l7",
+     "a": "esc",
+     "ai": "2-1",
+     "b": "b2",
+     "bi": "7-0",
+     "esp": 10
+    },
+    {
+     "id": "l8",
+     "a": "coz",
+     "ai": "2-1",
+     "b": "area",
+     "bi": "4-1",
+     "esp": 34
+    },
+    {
+     "id": "l9",
+     "a": "area",
+     "ai": "2-1",
+     "b": "b2",
+     "bi": "6-1",
+     "esp": 18
+    }
+   ]
+  }
+ ]
+}
