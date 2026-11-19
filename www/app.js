@@ -1,6 +1,6 @@
 "use strict";
 /* ===================== estado ===================== */
-let DB=null, DL=null, DICT=null, imoveis=[], view={t:'home'}, saveTimers={}, entry='', confirmDel=null, micOn=false, loaded=false, linkForm=null, imTab='comodos';
+let DB=null, DL=null, DICT=null, imoveis=[], view={t:'home'}, saveTimers={}, entry='', confirmDel=null, micOn=false, loaded=false, linkForm=null, imTab='comodos', pdfEsc=null;
 const TIPOS={parede:'Parede',porta:'Porta',janela:'Janela',passagem:'Passagem',armario:'Armário'};
 const ABERT=['porta','janela','passagem'];
 const COL={parede:'#1d2433',porta:'#d9822b',janela:'#2f80d1',passagem:'#1f7a4d',armario:'#8b7d63'};
@@ -239,7 +239,7 @@ function imV(){
       h+= tot?mv.filter(x=>x.av.length).map(x=>`<div class="issue-h">${esc(x.c.nome)}</div>`+x.av.map(i=>`<div class="issue ${i.n}">${esc(i.t)}</div>`).join('')).join(''):`<div class="status ok"><b>Todos os móveis cabem com conforto.</b></div>`}
   }
   if(im.comodos.length){
-    h+=`<h2>Exportar</h2><div class="grid2"><button data-a="pdf">PDF da planta</button><button data-a="dxf">Arquivo AutoCAD</button></div><p class="help">O arquivo do AutoCAD vem dentro de um .zip (DXF, em metros, tamanho real), com os cômodos encaixados como na aba Planta.</p><button class="ghost" data-a="json">Baixar cópia de segurança (.json)</button>`;
+    h+=`<h2>Exportar</h2>${pdfEscV(im)}<div class="grid2"><button data-a="pdfAbrir">PDF da planta</button><button data-a="dxf">Arquivo AutoCAD</button></div><p class="help">O arquivo do AutoCAD vem dentro de um .zip (DXF, em metros, tamanho real), com os cômodos encaixados como na aba Planta.</p><button class="ghost" data-a="json">Baixar cópia de segurança (.json)</button>`;
   }
   h+= confirmDel==='im'?`<div class="card confirm"><p>Apagar <b>${esc(im.nome)}</b> e todas as medidas?</p><div class="row"><button data-a="cancelDel">Não</button><button class="danger" data-a="delIm">Apagar</button></div></div>`:`<p><button class="ghost" style="color:var(--bad)" data-a="askDelIm">Apagar este imóvel</button></p>`;
   return h;
@@ -381,21 +381,55 @@ function pdfPlan(d,im,res,area,opt={}){
   });
 }
 function newPdf(){const {jsPDF}=window.jspdf||{};if(!jsPDF){toast('Gerador de PDF não carregou. Confira a internet.');return null}return new jsPDF({unit:'mm',format:'a4'})}
-function pdf(){
-  const im=cur();const d=newPdf();if(!d)return;const res=checks(im);
-  d.deletePage(1);d.addPage('a4','landscape');
+function pdfEscV(im){
+  if(!pdfEsc)return '';const rs=im.comodos.filter(c=>geo(c).segs.length);
+  return `<div class="card pdfesc"><b>O que vai no PDF?</b>
+    <label class="chk"><input type="checkbox" id="pdfPlanta" ${pdfEsc.planta?'checked':''}> Planta inteira</label>
+    <div class="chk-h">Cômodos <span class="ghostbtn" data-a="pdfTodos">marcar todos</span><span class="ghostbtn" data-a="pdfNenhum">desmarcar</span></div>
+    ${rs.map(c=>`<label class="chk"><input type="checkbox" class="pdfRoom" value="${c.id}" ${pdfEsc.rooms.has(c.id)?'checked':''}> ${esc(c.nome)}</label>`).join('')}
+    <div class="chk-h">Como gerar</div>
+    <label class="chk"><input type="radio" name="pdfModo" value="junto" ${!pdfEsc.separado?'checked':''}> Tudo num arquivo só</label>
+    <label class="chk"><input type="radio" name="pdfModo" value="sep" ${pdfEsc.separado?'checked':''}> Um arquivo para cada cômodo</label>
+    <div class="row" style="margin-top:8px"><button data-a="pdfCancelar">Cancelar</button><button class="pri" data-a="pdfGerar">Gerar PDF</button></div></div>`;
+}
+function pdfLerEsc(){if(!pdfEsc)return;const p=$('#pdfPlanta');if(p)pdfEsc.planta=p.checked;
+  pdfEsc.rooms=new Set([...document.querySelectorAll('.pdfRoom')].filter(x=>x.checked).map(x=>x.value));
+  const m=document.querySelector('input[name="pdfModo"]:checked');if(m)pdfEsc.separado=m.value==='sep'}
+function pdfPaginaPlanta(d,im,res){d.addPage('a4','landscape');
   d.setFont('helvetica','bold');d.setFontSize(16);d.setTextColor(31,58,95);d.text(im.nome+' - planta',14,14);
   d.setFont('helvetica','normal');d.setFontSize(9);d.setTextColor(90,100,116);d.text('Medidas internas em metros · '+new Date().toLocaleDateString('pt-BR'),14,20);
-  pdfPlan(d,im,res,{x:14,y:26,w:269,h:174},{medidas:true});
-  im.comodos.forEach(c=>{const g=geo(c);if(!g.segs.length)return;d.addPage('a4','portrait');
-    d.setFont('helvetica','bold');d.setFontSize(16);d.setTextColor(31,58,95);d.text(c.nome,15,18);
-    pdfDrawRoom(d,c,{x:22,y:30,w:166,h:150});
-    let yy=192;d.setFont('helvetica','normal');d.setFontSize(10);d.setTextColor(29,36,51);
-    c.paredes.forEach((wl,i)=>{if(!wl.pecas.length)return;const t=`Parede ${i+1}: `+wl.pecas.map(p=>(p.tipo==='parede'?'':TIPOS[p.tipo].toLowerCase()+' ')+fm(p.cm)).join(' + ')+(wl.virada==='E'?'  (vira à esquerda)':wl.virada==='D'?'  (vira à direita)':'');
-      if(yy>282){d.addPage();yy=20}d.text(t,15,yy);yy+=6});
-    if((c.moveis||[]).length){yy+=2;if(yy>282){d.addPage();yy=20}d.setFont('helvetica','bold');d.text('Móveis:',15,yy);yy+=6;d.setFont('helvetica','normal');
-      c.moveis.forEach(m=>{if(yy>282){d.addPage();yy=20}d.text('• '+m.nome+' ('+(m.forma==='redonda'?'Ø '+fm(m.w):fm(m.w)+' × '+fm(m.d))+' m)',18,yy);yy+=5.5})}});
-  baixar(slug(im.nome)+' - planta.pdf',d.output('blob'));
+  pdfPlan(d,im,res,{x:14,y:26,w:269,h:174},{medidas:true})}
+function pdfPaginaComodo(d,im,c,sozinho){d.addPage('a4','portrait');
+  d.setFont('helvetica','bold');d.setFontSize(16);d.setTextColor(31,58,95);d.text(c.nome,15,18);
+  if(sozinho){d.setFont('helvetica','normal');d.setFontSize(9);d.setTextColor(90,100,116);d.text(im.nome+' · medidas internas em metros · '+new Date().toLocaleDateString('pt-BR'),15,24)}
+  pdfDrawRoom(d,c,{x:22,y:30,w:166,h:150});
+  let yy=192;d.setFont('helvetica','normal');d.setFontSize(10);d.setTextColor(29,36,51);
+  c.paredes.forEach((wl,i)=>{if(!wl.pecas.length)return;const t=`Parede ${i+1}: `+wl.pecas.map(p=>(p.tipo==='parede'?'':TIPOS[p.tipo].toLowerCase()+' ')+fm(p.cm)).join(' + ')+(wl.virada==='E'?'  (vira à esquerda)':wl.virada==='D'?'  (vira à direita)':'');
+    if(yy>282){d.addPage();yy=20}d.text(t,15,yy);yy+=6});
+  if((c.moveis||[]).length){yy+=2;if(yy>282){d.addPage();yy=20}d.setFont('helvetica','bold');d.text('Móveis:',15,yy);yy+=6;d.setFont('helvetica','normal');
+    c.moveis.forEach(m=>{if(yy>282){d.addPage();yy=20}d.text('• '+m.nome+' ('+(m.forma==='redonda'?'Ø '+fm(m.w):fm(m.w)+' × '+fm(m.d))+' m)',18,yy);yy+=5.5})}}
+async function pdf(op){
+  const im=cur();const res=checks(im);
+  const rooms=im.comodos.filter(c=>geo(c).segs.length&&(!op||op.rooms.has(c.id)));const planta=!op||op.planta;
+  if(!planta&&!rooms.length){toast('Marque pelo menos a planta ou um cômodo.');return false}
+  const nome=slug(im.nome);
+  if(!op||!op.separado){const d=newPdf();if(!d)return false;d.deletePage(1);
+    if(planta)pdfPaginaPlanta(d,im,res);rooms.forEach(c=>pdfPaginaComodo(d,im,c,!planta&&rooms.length===1));
+    const fn=planta?nome+' - planta.pdf':rooms.length===1?nome+' - '+slug(rooms[0].nome)+'.pdf':nome+' - comodos.pdf';
+    await baixar(fn,d.output('blob'));return true}
+  const arqs=[];
+  if(planta){const d=newPdf();if(!d)return false;d.deletePage(1);pdfPaginaPlanta(d,im,res);arqs.push({filename:nome+' - planta.pdf',data:d.output('blob')})}
+  for(const c of rooms){const d=newPdf();if(!d)return false;d.deletePage(1);pdfPaginaComodo(d,im,c,true);arqs.push({filename:nome+' - '+slug(c.nome)+'.pdf',data:d.output('blob')})}
+  await baixarVarios(arqs);return true;
+}
+async function baixarVarios(arqs){
+  if(arqs.length===1)return baixar(arqs[0].filename,arqs[0].data);
+  if(NATIVO){try{const P=window.Capacitor.Plugins;const uris=[];
+      for(const a of arqs){const w=await P.Filesystem.writeFile({path:a.filename,data:await b64(a.data),directory:'CACHE'});uris.push(w.uri)}
+      await P.Share.share({title:arqs.length+' arquivos',files:uris,dialogTitle:'Salvar ou enviar os '+arqs.length+' PDFs'})}
+    catch(e){if(!(e&&/cancel/i.test(e.message||'')))toast('Não consegui salvar os arquivos.')}return}
+  for(const a of arqs){await baixar(a.filename,a.data);await new Promise(r=>setTimeout(r,700))}
+  toast(arqs.length+' PDFs gerados.');
 }
 function relatorio(){
   const im=cur();const d=newPdf();if(!d)return;const res=checks(im);const it=res.issues.filter(i=>i.n!=='info');
@@ -457,8 +491,8 @@ function act(a,b){const im=cur();
   if(typeof actMoveis==='function'&&actMoveis(a,b)){render();return}
   switch(a){
     case 'novoIm':{const n=$('#novoIm').value.trim();if(!n){toast('Digite o nome do imóvel.');return}const x={id:uid(),nome:n,criado:Date.now(),comodos:[],ligacoes:[]};imoveis.push(x);save(x);view={t:'im',im:x.id};imTab='comodos';break}
-    case 'abrirIm':view={t:'im',im:b.dataset.id};confirmDel=null;imTab='comodos';linkForm=null;break;
-    case 'home':view={t:'home'};confirmDel=null;break;
+    case 'abrirIm':view={t:'im',im:b.dataset.id};confirmDel=null;pdfEsc=null;imTab='comodos';linkForm=null;break;
+    case 'home':view={t:'home'};confirmDel=null;pdfEsc=null;break;
     case 'tab':imTab=b.dataset.k;break;
     case 'novoRoom':{const n=$('#novoRoom').value.trim();if(!n){toast('Digite o nome do cômodo.');return}const c={id:uid(),nome:n,paredes:[{pecas:[],virada:null}],fechado:false};im.comodos.push(c);save(im);view={t:'room',im:im.id,room:c.id};entry='';break}
     case 'abrirRoom':view={t:'room',im:im.id,room:b.dataset.id};entry='';confirmDel=null;break;
@@ -470,7 +504,12 @@ function act(a,b){const im=cur();
       if(A===B){toast('Escolha dois cômodos diferentes.');return}if(!ai||!bi){toast('Escolha a abertura nos dois cômodos.');return}
       im.ligacoes=im.ligacoes.filter(l=>!((l.a===A&&l.ai===ai)||(l.b===B&&l.bi===bi)));im.ligacoes.push({id:uid(),a:A,ai,b:B,bi,esp:Math.round(esp)});linkForm=null;save(im);toast('Cômodos ligados.');break}
     case 'delLink':im.ligacoes=im.ligacoes.filter(l=>l.id!==b.dataset.id);save(im);break;
-    case 'pdf':pdf();return; case 'dxf':dxf();return; case 'relatorio':relatorio();return;
+    case 'pdf':pdf();return;
+    case 'pdfAbrir':pdfEsc=pdfEsc?null:{planta:true,rooms:new Set(im.comodos.map(c=>c.id)),separado:false};break;
+    case 'pdfCancelar':pdfEsc=null;break;
+    case 'pdfTodos':pdfLerEsc();pdfEsc.rooms=new Set(im.comodos.map(c=>c.id));break;
+    case 'pdfNenhum':pdfLerEsc();pdfEsc.rooms=new Set();break;
+    case 'pdfGerar':pdfLerEsc();pdf(pdfEsc).then(ok=>{if(ok){pdfEsc=null;render()}});return; case 'dxf':dxf();return; case 'relatorio':relatorio();return;
     case 'carregarMedido':fetch('dados/apartamento-medido.json').then(r=>r.json()).then(j=>{(j.imoveis||[j]).map(norm).forEach(x=>{const i=imoveis.findIndex(y=>y.id===x.id);if(i>=0)imoveis[i]=x;else imoveis.push(x);save(x)});view={t:'im',im:'apto-medido'};imTab='planta';render();toast('Apartamento carregado.')}).catch(()=>toast('Não consegui carregar. Confira a internet.'));return;
     case 'jsonTodos':baixar('medir imovel - todos os imoveis - '+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({app:'Medir imóvel',data:new Date().toISOString(),imoveis,meusMoveis:meusGet()},null,1));return;
     case 'json':baixar(slug(im.nome)+' - medidas.json',JSON.stringify(im,null,1));return;
