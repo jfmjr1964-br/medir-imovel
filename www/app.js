@@ -33,7 +33,7 @@ function geo(c){
     wallStarts.push({x,y,hx,hy});
     const dir=hx>0.5?'E':hx<-0.5?'W':hy>0.5?'N':'S';
     let wl=0;
-    w.pecas.forEach((p,pi)=>{const m=p.cm/100;segs.push({x1:x,y1:y,x2:x+hx*m,y2:y+hy*m,tipo:p.tipo,cm:p.cm,wi,pi,hx,hy});x+=hx*m;y+=hy*m;wl+=p.cm});
+    w.pecas.forEach((p,pi)=>{const m=p.cm/100;segs.push({x1:x,y1:y,x2:x+hx*m,y2:y+hy*m,tipo:p.tipo,cm:p.cm,wi,pi,hx,hy,abre:p.abre,dob:p.dob});x+=hx*m;y+=hy*m;wl+=p.cm});
     if(wl){tot[dir]+=wl; side[dir].push(wi+1)}
     if(w.virada==='E'){[hx,hy]=[-hy,hx];L++} else if(w.virada==='D'){[hx,hy]=[hy,-hx];R++}
   });
@@ -114,6 +114,8 @@ function checks(im){
   im.comodos.forEach(c=>{const g=L.G[c.id]; if(!g.segs.length){issues.push({n:'info',t:`${c.nome}: ainda sem medidas.`,r:[c.id]});return}
     if(!c.fechado){issues.push({n:'info',t:`${c.nome}: medição ainda não foi fechada.`,r:[c.id]});return}
     const ci=closeInfo(c);
+    const semGiro=g.segs.filter(s=>s.tipo==='porta'&&(!s.abre||(s.abre!=='correr'&&!s.dob))).length;
+    if(semGiro&&(c.moveis||[]).length) issues.push({n:'info',t:`${c.nome}: falta dizer para que lado ${semGiro>1?`abrem ${semGiro} portas`:'abre 1 porta'} (em Portas, na tela do cômodo). Sem isso, o app não confere se os móveis atrapalham a porta.`,r:[c.id]});
     if(ci.dW>6) issues.push({n:'bad',t:`${c.nome}: as paredes ${g.side.E.join(', ')} somam ${fm(g.tot.E)} m e as do lado oposto (${g.side.W.join(', ')}) somam ${fm(g.tot.W)} m - ${ci.dW} cm de diferença.`,r:[c.id],w:[[c.id,[...g.side.E,...g.side.W]]],med:true});
     if(ci.dL>6) issues.push({n:'bad',t:`${c.nome}: as paredes ${g.side.N.join(', ')} somam ${fm(g.tot.N)} m e as do lado oposto (${g.side.S.join(', ')}) somam ${fm(g.tot.S)} m - ${ci.dL} cm de diferença.`,r:[c.id],w:[[c.id,[...g.side.N,...g.side.S]]],med:true});
   });
@@ -157,6 +159,7 @@ function svgRoom(c,opt={}){
   let o=`<svg viewBox="${vb.join(' ')}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" ${opt.id?`id="${opt.id}"`:'class="mini"'}>`;
   g.segs.forEach(s=>{const dash=s.tipo==='porta'||s.tipo==='armario'||s.tipo==='passagem'?`stroke-dasharray="${sw*2.2} ${sw*1.4}"`:'';
     o+=`<line x1="${s.x1}" y1="${-s.y1}" x2="${s.x2}" y2="${-s.y2}" stroke="${COL[s.tipo]}" stroke-width="${s.tipo==='janela'?sw*2.2:sw}" stroke-linecap="square" ${dash}/>`});
+  g.segs.forEach(s=>{const a2=portaArco(s,g.inLeft);if(a2)o+=svgArco(a2,(x,y)=>[x,y],sw)});
   if(!opt.mini){const k=g.inLeft?1:-1;
     g.segs.forEach(s=>{const nx=-s.hy*k,ny=s.hx*k;const mx=(s.x1+s.x2)/2+nx*fs*0.95,my=(s.y1+s.y2)/2+ny*fs*0.95;
       o+=`<text x="${mx}" y="${-my}" font-size="${fs}" text-anchor="middle" dominant-baseline="central" fill="${s.tipo==='parede'?'#b0451c':COL[s.tipo]}" font-weight="700" font-family="sans-serif">${fm(s.cm)}</text>`});
@@ -176,6 +179,7 @@ function svgPlan(im,res,opt={}){
     g.segs.forEach(s=>{const p=rot(t,s.x1,s.y1),q=rot(t,s.x2,s.y2);const dash=s.tipo==='porta'||s.tipo==='armario'||s.tipo==='passagem'?`stroke-dasharray="${sw*2.4} ${sw*1.6}"`:'';
       if(marked[c.id]&&marked[c.id].has(s.wi+1)) o+=`<line x1="${p[0]}" y1="${-p[1]}" x2="${q[0]}" y2="${-q[1]}" stroke="#f04438" stroke-opacity=".35" stroke-width="${sw*6}" stroke-linecap="round"/>`;
       o+=`<line x1="${p[0]}" y1="${-p[1]}" x2="${q[0]}" y2="${-q[1]}" stroke="${COL[s.tipo]}" stroke-width="${s.tipo==='janela'?sw*2.2:sw}" stroke-linecap="square" ${dash}/>`});
+    g.segs.forEach(s=>{const a2=portaArco(s,g.inLeft);if(a2&&a2.dentro)o+=svgArco(a2,(x,y)=>rot(t,x,y),sw)});
     const AVm=(c.moveis||[]).length?avisosMoveis(c):{};(c.moveis||[]).forEach(m=>{const p=rot(t,m.x,m.y);const q=AVm[m.id]||{};o+=svgMovel(m,p[0],p[1],(m.rot||0)+t.th*180/Math.PI,fs*0.7,{label:false,lados:q.lados,nivel:q.nivel})});
     const b=bbox(g.segs);const cc=rot(t,(b[0]+b[2])/2,(b[1]+b[3])/2);
     o+=`<text x="${cc[0]}" y="${-cc[1]}" font-size="${fs}" text-anchor="middle" dominant-baseline="central" fill="#1f3a5f" font-weight="700" font-family="sans-serif">${esc(c.nome)}</text>`;
@@ -271,6 +275,7 @@ function roomV(){
       <div class="grid3" style="margin-top:6px"><button data-a="undo">Desfazer</button>${DICT?`<button class="mic ${micOn?'on':''}" data-a="mic">${micOn?'■ Parar':'🎤 Falar'}</button>`:'<span></span>'}<button class="pri" data-a="fechar" ${c.paredes.length<3?'disabled':''}>Fechar cômodo</button></div></div>`;
     if(DICT) h+=`<p class="help">Falando: "parede 1,90", "porta 92", "janela 1,45", "passagem 80", "virar à esquerda", "desfazer", "fechar".</p>`}
   if(hasAny){h+=`<h2>Paredes</h2><div class="walls">`+c.paredes.map((w,i)=>w.pecas.length||!c.fechado?`<div><b>${i+1}</b><span style="flex:1">${w.pecas.map(p=>`<span class="chip t-${p.tipo}">${p.tipo==='parede'?'':TIPOS[p.tipo]+' '}${fm(p.cm)}</span>`).join(' + ')||'<span class="mut">…</span>'}${w.pecas.length>1?` <span class="mut">= ${fm(w.pecas.reduce((s,p)=>s+p.cm,0))}</span>`:''}</span><span class="mut">${w.virada==='E'?'↰ esq.':w.virada==='D'?'dir. ↱':''}</span></div>`:'').join('')+`</div>`}
+  if(hasAny) h+=portasV(c);
   h+= confirmDel==='room'?`<div class="card confirm"><p>Apagar o cômodo <b>${esc(c.nome)}</b>?</p><div class="row"><button data-a="cancelDel">Não</button><button class="danger" data-a="delRoom">Apagar</button></div></div>`:`<p><button class="ghost" style="color:var(--bad)" data-a="askDelRoom">Apagar este cômodo</button></p>`;
   return h;
 }

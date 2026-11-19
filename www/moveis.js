@@ -88,6 +88,7 @@ function moveisV(){
   let s=`<svg id="mvsvg" viewBox="${b[0]-pad} ${-(b[3]+pad)} ${w+2*pad} ${h+2*pad}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="touch-action:none">`;
   g.segs.forEach(sg=>{const dash=['porta','armario','passagem'].includes(sg.tipo)?`stroke-dasharray="${sw*2.2} ${sw*1.4}"`:'';
     s+=`<line x1="${sg.x1}" y1="${-sg.y1}" x2="${sg.x2}" y2="${-sg.y2}" stroke="${COL[sg.tipo]}" stroke-width="${sg.tipo==='janela'?sw*2.2:sw}" stroke-linecap="square" ${dash}/>`});
+  g.segs.forEach(sg=>{const a2=portaArco(sg,g.inLeft);if(a2)s+=svgArco(a2,(x,y)=>[x,y],sw)});
   const k=g.inLeft?1:-1;
   g.segs.forEach(sg=>{const nx=-sg.hy*k,ny=sg.hx*k,mx=(sg.x1+sg.x2)/2+nx*fs*0.75,my=(sg.y1+sg.y2)/2+ny*fs*0.75;
     s+=`<text x="${mx}" y="${-my}" font-size="${fs*0.6}" text-anchor="middle" dominant-baseline="central" fill="#9aa3b2" font-family="sans-serif">${fm(sg.cm)}</text>`});
@@ -160,6 +161,8 @@ function actMoveis(a,b){const im=cur(),c=room();const m=c&&c.moveis&&c.moveis.fi
     case 'movDesel':movSel=null;return true;
     case 'movGirar':if(m){m.rot=((m.rot||0)+90)%360;movSnap(c,m);save(im)}return true;
     case 'movDup':if(m){const n={...m,uso:{...m.uso},id:uid(),x:m.x+0.3,y:m.y-0.3};c.moveis.push(n);movSel=n.id;save(im)}return true;
+    case 'portaAbre':portaSet(im,c,b.dataset.k,'abre',b.dataset.v);save(im);return true;
+    case 'portaDob':portaSet(im,c,b.dataset.k,'dob',b.dataset.v);save(im);return true;
     case 'movDel':if(m){c.moveis=c.moveis.filter(x=>x.id!==m.id);movSel=null;save(im)}return true;
   }
   return false;
@@ -223,11 +226,18 @@ function avisosMoveis(c){
     }
     // 4. na frente de porta ou passagem
     g.segs.filter(s=>s.tipo==='porta'||s.tipo==='passagem').forEach(s=>{
-      const nx=-s.hy*k,ny=s.hx*k; const prof=s.tipo==='porta'?s.cm/100:0.6;
-      const xs=[s.x1,s.x2,s.x1+nx*prof,s.x2+nx*prof],ys=[s.y1,s.y2,s.y1+ny*prof,s.y2+ny*prof];
-      const z={L:Math.min(...xs),R:Math.max(...xs),B:Math.min(...ys),T:Math.max(...ys)};
+      const nx=-s.hy*k,ny=s.hx*k; const arco=portaArco(s,g.inLeft);
+      if(s.tipo==='porta'&&(s.abre==='fora'||s.abre==='correr'||(arco&&!arco.dentro))) return;
+      let z,raioOk=null;
+      if(arco){const xs=[arco.H[0],arco.C[0],arco.O[0]],ys=[arco.H[1],arco.C[1],arco.O[1]];z={L:Math.min(...xs),R:Math.max(...xs),B:Math.min(...ys),T:Math.max(...ys)};
+        const qx=Math.max(b.L,Math.min(arco.H[0],b.R)),qy=Math.max(b.B,Math.min(arco.H[1],b.T));raioOk=Math.hypot(qx-arco.H[0],qy-arco.H[1])<arco.w-0.02}
+      else{const prof=s.tipo==='porta'?s.cm/100:0.6;const xs=[s.x1,s.x2,s.x1+nx*prof,s.x2+nx*prof],ys=[s.y1,s.y2,s.y1+ny*prof,s.y2+ny*prof];z={L:Math.min(...xs),R:Math.max(...xs),B:Math.min(...ys),T:Math.max(...ys)}}
       const ox=Math.min(b.R,z.R)-Math.max(b.L,z.L),oy=Math.min(b.T,z.T)-Math.max(b.B,z.B);
-      if(ox>0.02&&oy>0.02) av.push({n:'warn',t:`${m.nome}: está na frente da ${s.tipo==='porta'?'porta':'passagem'} (parede ${s.wi+1}) e pode atrapalhar ${s.tipo==='porta'?'a porta de abrir':'a passagem'}.`});
+      if(ox>0.02&&oy>0.02&&raioOk!==false){
+        if(s.tipo==='passagem') av.push({n:'warn',t:`${m.nome}: está na frente da passagem (parede ${s.wi+1}) e atrapalha quem passa.`});
+        else if(arco) av.push({n:'bad',t:`${m.nome}: está no giro da porta (parede ${s.wi+1}). A porta bate no móvel.`});
+        else av.push({n:'warn',t:`${m.nome}: está na frente da porta (parede ${s.wi+1}) e pode atrapalhar. Diga para que lado ela abre (em Portas, na tela do cômodo).`});
+      }
     });
     // 5. móvel alto na frente da janela
     if(ALTOS.has(m.cat)) g.segs.filter(s=>s.tipo==='janela').forEach(s=>{
@@ -239,4 +249,39 @@ function avisosMoveis(c){
   });
   Object.values(res).forEach(r=>{r.nivel=r.av.some(a=>a.n==='bad')?'bad':r.av.length?'warn':'ok'});
   return res;
+}
+
+/* ===================== etapa 3: giro das portas ===================== */
+/* s = segmento de porta (de geo), inLeft = lado de dentro do cômodo. Retorna dobradiça H, ponta fechada C, ponta aberta O. */
+function portaArco(s,inLeft){
+  if(s.tipo!=='porta'||!s.abre||s.abre==='correr'||!s.dob) return null;
+  const k=inLeft?1:-1, n=[-s.hy*k,s.hx*k], u=[s.hx,s.hy], w=s.cm/100;
+  const left=[n[1],-n[0]]; const paraFim=(left[0]*u[0]+left[1]*u[1])>0;
+  const naEsq=s.dob==='E'; const H=(naEsq===paraFim)?[s.x2,s.y2]:[s.x1,s.y1]; const C=(naEsq===paraFim)?[s.x1,s.y1]:[s.x2,s.y2];
+  const d=s.abre==='dentro'?n:[-n[0],-n[1]]; const O=[H[0]+d[0]*w,H[1]+d[1]*w];
+  return {H,C,O,w,dentro:s.abre==='dentro'};
+}
+function svgArco(a,P,sw,cor){ /* P: função que leva (x,y) do cômodo para (x,y) do mundo */
+  const H=P(...a.H),C=P(...a.C),O=P(...a.O); const hx=H[0],hy=-H[1],cx=C[0],cy=-C[1],ox=O[0],oy=-O[1];
+  const cr=(cx-hx)*(oy-hy)-(cy-hy)*(ox-hx); const sweep=cr>0?1:0;
+  return `<path d="M ${cx} ${cy} A ${a.w} ${a.w} 0 0 ${sweep} ${ox} ${oy}" fill="none" stroke="${cor||'#d9822b'}" stroke-width="${sw*0.5}" stroke-dasharray="${sw*1.6} ${sw*1.1}"/><line x1="${hx}" y1="${hy}" x2="${ox}" y2="${oy}" stroke="${cor||'#d9822b'}" stroke-width="${sw*0.9}"/>`;
+}
+function portasV(c){
+  const g=geo(c); const ps=g.segs.filter(s=>s.tipo==='porta'); if(!ps.length) return '';
+  const bt=(k,v,cur,txt)=>`<button class="seg ${cur===v?'on':''}" data-a="${k}" data-k="${ps[0]?'':''}" >${txt}</button>`;
+  let h=`<h2>Portas</h2><p class="help">Para o app saber o giro da porta. A dobradiça é vista de dentro deste cômodo, olhando para a porta.</p>`;
+  h+=ps.map(s=>{const key=s.wi+'-'+s.pi;const p=c.paredes[s.wi].pecas[s.pi];
+    const b=(a,v,txt,cur)=>`<button class="seg ${cur===v?'on':''}" data-a="${a}" data-k="${key}" data-v="${v}">${txt}</button>`;
+    return `<div class="card porta"><b>Parede ${s.wi+1} · Porta ${fm(s.cm)}</b>
+      <div class="segrow"><span class="mini-l">Abre</span>${b('portaAbre','dentro','Para dentro',p.abre)}${b('portaAbre','fora','Para fora',p.abre)}${b('portaAbre','correr','De correr',p.abre)}</div>
+      ${p.abre==='correr'?'':`<div class="segrow"><span class="mini-l">Dobradiça</span>${b('portaDob','E','À esquerda',p.dob)}${b('portaDob','D','À direita',p.dob)}</div>`}</div>`}).join('');
+  return h;
+}
+/* aplica no cômodo e espelha na mesma porta vista do outro cômodo (se as portas estiverem ligadas) */
+function portaSet(im,c,key,campo,v){
+  const [wi,pi]=key.split('-').map(Number); const p=c.paredes[wi].pecas[pi]; p[campo]=v;
+  (im.ligacoes||[]).forEach(l=>{let oid=null,ok=null; if(l.a===c.id&&l.ai===key){oid=l.b;ok=l.bi} else if(l.b===c.id&&l.bi===key){oid=l.a;ok=l.ai} if(!oid)return;
+    const oc=im.comodos.find(x=>x.id===oid); if(!oc)return; const [w2,p2]=ok.split('-').map(Number); const q=oc.paredes[w2]&&oc.paredes[w2].pecas[p2]; if(!q||q.tipo!=='porta')return;
+    if(campo==='abre') q.abre=v==='dentro'?'fora':v==='fora'?'dentro':'correr'; else q.dob=v==='E'?'D':'E';
+  });
 }
