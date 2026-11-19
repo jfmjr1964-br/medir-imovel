@@ -30,6 +30,9 @@ const CATALOGO=[
   {id:'mesa8',nome:'Mesa 8 lugares',w:200,d:100,uso:{f:75,t:75,e:75,r:75}},
   {id:'mesa_red',nome:'Mesa redonda 4 lugares',w:100,d:100,forma:'redonda',uso:{f:75,t:75,e:75,r:75}},
   {id:'aparador',nome:'Aparador',w:120,d:40,uso:{f:60,t:0,e:0,r:0}},
+  {id:'bufe',nome:'Bufê',w:160,d:45,uso:{f:80,t:0,e:0,r:0}},
+  {id:'cristaleira',nome:'Cristaleira',w:100,d:40,uso:{f:70,t:0,e:0,r:0}},
+  {id:'cadeira',nome:'Cadeira avulsa',w:45,d:50,uso:{f:30,t:0,e:0,r:0}},
  ]},
  {grupo:'Cozinha e serviço',itens:[
   {id:'geladeira',nome:'Geladeira',w:70,d:75,uso:{f:90,t:0,e:0,r:0}},
@@ -169,7 +172,7 @@ function actMoveis(a,b){const im=cur(),c=room();const m=c&&c.moveis&&c.moveis.fi
 }
 
 /* ===================== etapa 2: avisos ===================== */
-const ALTOS=new Set(['gr2','gr3','gr4','grc','estante','geladeira']);
+const ALTOS=new Set(['gr2','gr3','gr4','grc','estante','geladeira','cristaleira']);
 const LADO_NOME={f:'frente',t:'trás',e:'lado esquerdo',r:'lado direito'};
 function rotV(v,deg){const a=deg*Math.PI/180,c=Math.round(Math.cos(a)),s=Math.round(Math.sin(a));return[v[0]*c-v[1]*s,v[0]*s+v[1]*c]}
 function corpo(m){const fp=footprint(m);return{L:m.x-fp.w/2,R:m.x+fp.w/2,B:m.y-fp.d/2,T:m.y+fp.d/2}}
