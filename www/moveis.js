@@ -60,16 +60,18 @@ function svgMovel(m,x,y,ang,fs,opt={}){
   const w=m.w/100,d=m.d/100,u=m.uso||{},sel=opt.sel;
   let o=`<g transform="translate(${x} ${-y}) rotate(${-ang})" ${opt.click?`data-mov="${m.id}" class="mov"`:''}>`;
   if(opt.uso!==false){
-    const z='fill="#f3b23c" fill-opacity="0.16" stroke="#d99a1e" stroke-opacity=".7" stroke-dasharray="'+fs*0.35+' '+fs*0.25+'" stroke-width="'+fs*0.05+'"';
-    if(m.forma==='redonda'){ if(u.f) o+=`<circle cx="0" cy="0" r="${w/2+u.f/100}" ${z}/>` }
+    const LS=opt.lados||{}; const cor={ok:['#f3b23c','#d99a1e',0.16],warn:['#f79009','#dc6803',0.3],bad:['#f04438','#d92d20',0.3]};
+    const z=l=>{const c2=cor[(LS[l]&&LS[l].st)||'ok'];return `fill="${c2[0]}" fill-opacity="${c2[2]}" stroke="${c2[1]}" stroke-opacity=".75" stroke-dasharray="${fs*0.35} ${fs*0.25}" stroke-width="${fs*0.05}"`};
+    if(m.forma==='redonda'){ if(u.f) o+=`<circle cx="0" cy="0" r="${w/2+u.f/100}" ${z('f')}/>` }
     else{
-      if(u.f) o+=`<rect x="${-w/2}" y="${d/2}" width="${w}" height="${u.f/100}" ${z}/>`;
-      if(u.t) o+=`<rect x="${-w/2}" y="${-d/2-u.t/100}" width="${w}" height="${u.t/100}" ${z}/>`;
-      if(u.e) o+=`<rect x="${-w/2-u.e/100}" y="${-d/2}" width="${u.e/100}" height="${d}" ${z}/>`;
-      if(u.r) o+=`<rect x="${w/2}" y="${-d/2}" width="${u.r/100}" height="${d}" ${z}/>`;
+      if(u.f) o+=`<rect x="${-w/2}" y="${d/2}" width="${w}" height="${u.f/100}" ${z('f')}/>`;
+      if(u.t) o+=`<rect x="${-w/2}" y="${-d/2-u.t/100}" width="${w}" height="${u.t/100}" ${z('t')}/>`;
+      if(u.e) o+=`<rect x="${-w/2-u.e/100}" y="${-d/2}" width="${u.e/100}" height="${d}" ${z('e')}/>`;
+      if(u.r) o+=`<rect x="${w/2}" y="${-d/2}" width="${u.r/100}" height="${d}" ${z('r')}/>`;
     }
   }
-  const st=`fill="${sel?'#dbe7f7':'#eef2f7'}" stroke="${sel?'#d9822b':'#2b5487'}" stroke-width="${sel?fs*0.14:fs*0.07}"`;
+  const bc=opt.nivel==='bad'?'#d92d20':opt.nivel==='warn'?'#dc6803':null;
+  const st=`fill="${opt.nivel==='bad'?'#fde8e6':sel?'#dbe7f7':'#eef2f7'}" stroke="${sel?'#d9822b':bc||'#2b5487'}" stroke-width="${sel||bc?fs*0.14:fs*0.07}"`;
   if(m.forma==='redonda') o+=`<circle cx="0" cy="0" r="${w/2}" ${st}/>`;
   else{ o+=`<rect x="${-w/2}" y="${-d/2}" width="${w}" height="${d}" rx="${Math.min(w,d)*0.04}" ${st}/>`;
     o+=`<line x1="${-w/2+w*0.12}" y1="${d/2-fs*0.12}" x2="${w/2-w*0.12}" y2="${d/2-fs*0.12}" stroke="${sel?'#d9822b':'#2b5487'}" stroke-width="${fs*0.1}" stroke-opacity=".55"/>` }
@@ -89,24 +91,28 @@ function moveisV(){
   const k=g.inLeft?1:-1;
   g.segs.forEach(sg=>{const nx=-sg.hy*k,ny=sg.hx*k,mx=(sg.x1+sg.x2)/2+nx*fs*0.75,my=(sg.y1+sg.y2)/2+ny*fs*0.75;
     s+=`<text x="${mx}" y="${-my}" font-size="${fs*0.6}" text-anchor="middle" dominant-baseline="central" fill="#9aa3b2" font-family="sans-serif">${fm(sg.cm)}</text>`});
-  c.moveis.forEach(m=>{if(m.id!==movSel)s+=svgMovel(m,m.x,m.y,m.rot||0,fs,{click:1})});
-  const sm=c.moveis.find(m=>m.id===movSel); if(sm) s+=svgMovel(sm,sm.x,sm.y,sm.rot||0,fs,{click:1,sel:1});
+  const AV=avisosMoveis(c); const ia=m=>AV[m.id]||{av:[],lados:{},nivel:'ok'};
+  c.moveis.forEach(m=>{if(m.id!==movSel)s+=svgMovel(m,m.x,m.y,m.rot||0,fs,{click:1,lados:ia(m).lados,nivel:ia(m).nivel})});
+  const sm=c.moveis.find(m=>m.id===movSel); if(sm) s+=svgMovel(sm,sm.x,sm.y,sm.rot||0,fs,{click:1,sel:1,lados:ia(sm).lados,nivel:ia(sm).nivel});
   s+='</svg>';
   let h2=`<div class="top"><button class="ghost" data-a="voltarRoom">‹ ${esc(c.nome)}</button><h1>Móveis</h1></div>`;
-  h2+=`<div class="planbox">${s}</div><p class="help">Arraste o móvel com o dedo. Perto da parede, ele encosta sozinho. A faixa amarela é o espaço livre para usar o móvel com conforto.</p>`;
+  h2+=`<div class="planbox">${s}</div>`;
+  const todos=c.moveis.flatMap(m=>ia(m).av); const vist=new Set(); const lista=todos.filter(a=>!vist.has(a.t)&&vist.add(a.t));
+  if(c.moveis.length) h2+= lista.length?`<div class="status ${lista.some(a=>a.n==='bad')?'bad':'warn'}"><b>${lista.length} aviso(s) neste cômodo</b>${lista.map(a=>`<div class="av ${a.n}">${esc(a.t)}</div>`).join('')}</div>`:`<div class="status ok"><b>Tudo cabe com conforto.</b></div>`;
+  h2+=`<p class="help">Arraste o móvel com o dedo. Perto da parede, ele encosta sozinho. Faixa amarela: espaço livre com conforto. Laranja: apertado, mas dá. Vermelho: abaixo do mínimo.</p>`;
   if(sm){const fr=v=>esc(v);
     h2+=`<div class="card"><div class="row" style="align-items:center"><b style="flex:1">${esc(sm.nome)}</b><button class="ghost" data-a="movDesel">Fechar</button></div>
       <div class="grid2" style="margin-top:6px"><button class="turn" data-a="movGirar">↻ Girar 90°</button><button data-a="movDup">Duplicar</button></div>
       <div class="frm"><label>Nome</label><input id="mvNome" value="${fr(sm.nome)}">
       <div class="grid2"><div><label>${sm.forma==='redonda'?'Diâmetro':'Largura'} (cm)</label><input id="mvW" inputmode="decimal" value="${sm.w}"></div>${sm.forma==='redonda'?'<div></div>':`<div><label>Profundidade (cm)</label><input id="mvD" inputmode="decimal" value="${sm.d}"></div>`}</div>
       <label>Espaço livre para usar (cm)</label>
-      <div class="grid4">${(sm.forma==='redonda'?[['f','Em volta']]:[['f','Frente'],['t','Trás'],['e','Esquerda'],['r','Direita']]).map(([k2,t])=>`<div><span class="mini-l">${t}</span><input data-uso="${k2}" inputmode="decimal" value="${(sm.uso||{})[k2]||0}"></div>`).join('')}</div>
+      <div class="grid4">${(sm.forma==='redonda'?[['f','Em volta']]:[['f','Frente'],['t','Trás'],['e','Esquerda'],['r','Direita']]).map(([k2,t])=>{const L2=ia(sm).lados[k2];return `<div><span class="mini-l">${t}</span><input data-uso="${k2}" inputmode="decimal" value="${(sm.uso||{})[k2]||0}">${L2?`<span class="livre ${L2.st}">tem ${L2.livre>=300?'+300':L2.livre}</span>`:''}</div>`}).join('')}</div>
       <p class="help">Esquerda e direita olhando o móvel de frente. A frente é o lado com a linha mais grossa.</p></div>
       <button class="ghost" style="color:var(--bad)" data-a="movDel">Tirar este móvel</button></div>`;
   }
   h2+=`<button class="pri wide" data-a="catAbrir">+ Adicionar móvel</button>`;
   if(catAberto){h2+=`<div class="card cat">`+CATALOGO.map(gr=>`<div class="cat-g">${gr.grupo}</div>`+gr.itens.map(it=>`<button class="cat-i" data-a="movAdd" data-id="${it.id}"><span>${esc(it.nome)}</span><span class="mut">${it.forma==='redonda'?'Ø '+it.w:it.w+' × '+it.d} cm</span></button>`).join('')).join('')+`</div>`}
-  if(c.moveis.length){h2+=`<h2>Neste cômodo</h2><div class="walls">`+c.moveis.map(m=>`<div data-a="movSel" data-id="${m.id}" style="cursor:pointer"><span style="flex:1">${esc(m.nome)}</span><span class="mut">${m.forma==='redonda'?'Ø '+m.w:m.w+' × '+m.d} cm</span></div>`).join('')+`</div>`}
+  if(c.moveis.length){h2+=`<h2>Neste cômodo</h2><div class="walls">`+c.moveis.map(m=>`<div data-a="movSel" data-id="${m.id}" style="cursor:pointer"><span style="flex:1">${esc(m.nome)}</span><span class="mut">${m.forma==='redonda'?'Ø '+m.w:m.w+' × '+m.d} cm</span>${ia(m).nivel!=='ok'?`<span class="dot ${ia(m).nivel}"></span>`:''}</div>`).join('')+`</div>`}
   return h2;
 }
 function movCentro(c){const g=geo(c),b=bbox(g.segs);return[(b[0]+b[2])/2,(b[1]+b[3])/2]}
@@ -157,4 +163,80 @@ function actMoveis(a,b){const im=cur(),c=room();const m=c&&c.moveis&&c.moveis.fi
     case 'movDel':if(m){c.moveis=c.moveis.filter(x=>x.id!==m.id);movSel=null;save(im)}return true;
   }
   return false;
+}
+
+/* ===================== etapa 2: avisos ===================== */
+const ALTOS=new Set(['gr2','gr3','gr4','grc','estante','geladeira']);
+const LADO_NOME={f:'frente',t:'trás',e:'lado esquerdo',r:'lado direito'};
+function rotV(v,deg){const a=deg*Math.PI/180,c=Math.round(Math.cos(a)),s=Math.round(Math.sin(a));return[v[0]*c-v[1]*s,v[0]*s+v[1]*c]}
+function corpo(m){const fp=footprint(m);return{L:m.x-fp.w/2,R:m.x+fp.w/2,B:m.y-fp.d/2,T:m.y+fp.d/2}}
+function minimo(conf){return conf>0?Math.max(0,conf-15):0}
+function dentro(poly,x,y){let d=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const[xi,yi]=poly[i],[xj,yj]=poly[j];if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi))d=!d}return d}
+/* distância livre a partir de (px,py) na direção dir (eixo), até parede ou outro móvel */
+function raio(px,py,dir,paredes,outros,max){
+  let best=max;
+  paredes.forEach(s=>{
+    if(dir[0]!==0){ if(Math.abs(s.x1-s.x2)>1e-6)return; const y0=Math.min(s.y1,s.y2),y1=Math.max(s.y1,s.y2); if(py<=y0+1e-4||py>=y1-1e-4)return; const d=(s.x1-px)*dir[0]; if(d>-1e-4&&d<best)best=Math.max(0,d) }
+    else { if(Math.abs(s.y1-s.y2)>1e-6)return; const x0=Math.min(s.x1,s.x2),x1=Math.max(s.x1,s.x2); if(px<=x0+1e-4||px>=x1-1e-4)return; const d=(s.y1-py)*dir[1]; if(d>-1e-4&&d<best)best=Math.max(0,d) }
+  });
+  outros.forEach(r=>{
+    if(dir[0]!==0){ if(py<=r.B+1e-4||py>=r.T-1e-4)return; const face=dir[0]>0?r.L:r.R; const d=(face-px)*dir[0]; if(d>-1e-4&&d<best)best=Math.max(0,d) }
+    else { if(px<=r.L+1e-4||px>=r.R-1e-4)return; const face=dir[1]>0?r.B:r.T; const d=(face-py)*dir[1]; if(d>-1e-4&&d<best)best=Math.max(0,d) }
+  });
+  return best;
+}
+function livreLado(m,lado,paredes,outros){
+  const b=corpo(m); const loc={f:[0,-1],t:[0,1],e:[-1,0],r:[1,0]}[lado]; const v=rotV(loc,m.rot||0);
+  const ini=v[0]!==0?(v[0]>0?b.R:b.L):(v[1]>0?b.T:b.B); const a0=v[0]!==0?b.B:b.L, a1=v[0]!==0?b.T:b.R;
+  const n=Math.max(3,Math.round((a1-a0)/0.05)); const vals=[];
+  for(let i=0;i<=n;i++){const t=a0+0.02+(a1-a0-0.04)*i/n; const px=v[0]!==0?ini:t, py=v[0]!==0?t:ini; vals.push(raio(px,py,v,paredes,outros,3))}
+  vals.sort((a,b2)=>a-b2);
+  /* nas laterais vale o espaço que existe em pelo menos 70% do lado (ex.: criado-mudo na cabeceira não conta); frente e trás usam o ponto mais apertado */
+  const val=(lado==='e'||lado==='r')&&m.forma!=='redonda'?vals[Math.floor(vals.length*0.3)]:vals[0];
+  return Math.round(val*100);
+}
+function avisosMoveis(c){
+  const res={}; const g=geo(c); const ms=c.moveis||[]; if(!ms.length||!g.segs.length) return res;
+  const paredes=g.segs.filter(s=>s.tipo!=='porta'&&s.tipo!=='passagem');
+  const poly=g.segs.map(s=>[s.x1,s.y1]); const k=g.inLeft?1:-1;
+  const rects={}; ms.forEach(m=>rects[m.id]=corpo(m));
+  ms.forEach(m=>{
+    const av=[], lados={}; const b=rects[m.id]; const outros=ms.filter(o=>o.id!==m.id).map(o=>rects[o.id]);
+    // 1. dentro do cômodo / atravessando parede
+    const pts=[[b.L+0.01,b.B+0.01],[b.R-0.01,b.B+0.01],[b.R-0.01,b.T-0.01],[b.L+0.01,b.T-0.01],[(b.L+b.R)/2,b.B+0.01],[(b.L+b.R)/2,b.T-0.01],[b.L+0.01,(b.B+b.T)/2],[b.R-0.01,(b.B+b.T)/2]];
+    const fora=pts.some(p=>!dentro(poly,p[0],p[1]));
+    const cruza=g.segs.some(s=>{const x0=Math.min(s.x1,s.x2),x1=Math.max(s.x1,s.x2),y0=Math.min(s.y1,s.y2),y1=Math.max(s.y1,s.y2);return x1>b.L+0.01&&x0<b.R-0.01&&y1>b.B+0.01&&y0<b.T-0.01});
+    if(fora||cruza) av.push({n:'bad',t:`${m.nome}: está atravessando a parede ou saindo do cômodo.`});
+    // 2. em cima de outro móvel
+    ms.forEach(o=>{if(o.id<=m.id)return;const r=rects[o.id];const ox=Math.min(b.R,r.R)-Math.max(b.L,r.L),oy=Math.min(b.T,r.T)-Math.max(b.B,r.B);
+      if(ox>0.01&&oy>0.01){av.push({n:'bad',t:`${m.nome} e ${o.nome} estão um em cima do outro.`});(res[o.id]=res[o.id]||{av:[],lados:{}}).av.push({n:'bad',t:`${o.nome} e ${m.nome} estão um em cima do outro.`})}});
+    // 3. espaço livre de cada lado
+    if(!(fora||cruza)){
+      const u=m.uso||{}; const ladosAt=m.forma==='redonda'?['f','t','e','r']:['f','t','e','r'];
+      ladosAt.forEach(l=>{const conf=u[l]||0; if(!conf)return; const livre=livreLado(m,l,paredes,outros); const mi=minimo(conf);
+        const st=livre>=conf?'ok':livre>=mi?'warn':'bad'; lados[l]={livre,conf,mi,st};
+        if(st!=='ok'){const nome=m.forma==='redonda'?'em volta':LADO_NOME[l];
+          av.push({n:st,t:`${m.nome}: ${nome} com ${livre} cm livres (o ideal é ${conf} cm${mi?`, o mínimo ${mi} cm`:''}).`})}});
+      if(m.forma==='redonda'){const vals=Object.values(lados); if(vals.length){const w=vals.reduce((a,b2)=>a.livre<b2.livre?a:b2); ['f','t','e','r'].forEach(l=>lados[l]=lados[l]||w);
+        // junta os avisos da mesa redonda num só
+        const ruins=av.filter(a=>/em volta/.test(a.t)); if(ruins.length>1){const pior=ruins.sort((a,b2)=>a.n==='bad'?-1:1)[0];for(const r2 of ruins)av.splice(av.indexOf(r2),1);av.push({n:pior.n,t:`${m.nome}: em volta ficou com ${w.livre} cm livres no lado mais apertado (o ideal é ${w.conf} cm, o mínimo ${w.mi} cm).`})}}}
+    }
+    // 4. na frente de porta ou passagem
+    g.segs.filter(s=>s.tipo==='porta'||s.tipo==='passagem').forEach(s=>{
+      const nx=-s.hy*k,ny=s.hx*k; const prof=s.tipo==='porta'?s.cm/100:0.6;
+      const xs=[s.x1,s.x2,s.x1+nx*prof,s.x2+nx*prof],ys=[s.y1,s.y2,s.y1+ny*prof,s.y2+ny*prof];
+      const z={L:Math.min(...xs),R:Math.max(...xs),B:Math.min(...ys),T:Math.max(...ys)};
+      const ox=Math.min(b.R,z.R)-Math.max(b.L,z.L),oy=Math.min(b.T,z.T)-Math.max(b.B,z.B);
+      if(ox>0.02&&oy>0.02) av.push({n:'warn',t:`${m.nome}: está na frente da ${s.tipo==='porta'?'porta':'passagem'} (parede ${s.wi+1}) e pode atrapalhar ${s.tipo==='porta'?'a porta de abrir':'a passagem'}.`});
+    });
+    // 5. móvel alto na frente da janela
+    if(ALTOS.has(m.cat)) g.segs.filter(s=>s.tipo==='janela').forEach(s=>{
+      const hz=Math.abs(s.y1-s.y2)<1e-6; const x0=Math.min(s.x1,s.x2),x1=Math.max(s.x1,s.x2),y0=Math.min(s.y1,s.y2),y1=Math.max(s.y1,s.y2);
+      const perto=hz?(Math.min(Math.abs(b.B-s.y1),Math.abs(b.T-s.y1))<0.15&&Math.min(b.R,x1)-Math.max(b.L,x0)>0.05):(Math.min(Math.abs(b.L-s.x1),Math.abs(b.R-s.x1))<0.15&&Math.min(b.T,y1)-Math.max(b.B,y0)>0.05);
+      if(perto) av.push({n:'warn',t:`${m.nome}: é um móvel alto e está na frente da janela (parede ${s.wi+1}).`});
+    });
+    const cur2=res[m.id]||{av:[],lados:{}}; cur2.av=cur2.av.concat(av); cur2.lados=lados; res[m.id]=cur2;
+  });
+  Object.values(res).forEach(r=>{r.nivel=r.av.some(a=>a.n==='bad')?'bad':r.av.length?'warn':'ok'});
+  return res;
 }

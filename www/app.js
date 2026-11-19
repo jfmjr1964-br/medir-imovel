@@ -176,7 +176,7 @@ function svgPlan(im,res,opt={}){
     g.segs.forEach(s=>{const p=rot(t,s.x1,s.y1),q=rot(t,s.x2,s.y2);const dash=s.tipo==='porta'||s.tipo==='armario'||s.tipo==='passagem'?`stroke-dasharray="${sw*2.4} ${sw*1.6}"`:'';
       if(marked[c.id]&&marked[c.id].has(s.wi+1)) o+=`<line x1="${p[0]}" y1="${-p[1]}" x2="${q[0]}" y2="${-q[1]}" stroke="#f04438" stroke-opacity=".35" stroke-width="${sw*6}" stroke-linecap="round"/>`;
       o+=`<line x1="${p[0]}" y1="${-p[1]}" x2="${q[0]}" y2="${-q[1]}" stroke="${COL[s.tipo]}" stroke-width="${s.tipo==='janela'?sw*2.2:sw}" stroke-linecap="square" ${dash}/>`});
-    (c.moveis||[]).forEach(m=>{const p=rot(t,m.x,m.y);o+=svgMovel(m,p[0],p[1],(m.rot||0)+t.th*180/Math.PI,fs*0.7,{label:false})});
+    const AVm=(c.moveis||[]).length?avisosMoveis(c):{};(c.moveis||[]).forEach(m=>{const p=rot(t,m.x,m.y);const q=AVm[m.id]||{};o+=svgMovel(m,p[0],p[1],(m.rot||0)+t.th*180/Math.PI,fs*0.7,{label:false,lados:q.lados,nivel:q.nivel})});
     const b=bbox(g.segs);const cc=rot(t,(b[0]+b[2])/2,(b[1]+b[3])/2);
     o+=`<text x="${cc[0]}" y="${-cc[1]}" font-size="${fs}" text-anchor="middle" dominant-baseline="central" fill="#1f3a5f" font-weight="700" font-family="sans-serif">${esc(c.nome)}</text>`;
     if(opt.numeros){const k=g.inLeft?1:-1;g.wallStarts.forEach((p0,i)=>{if(!c.paredes[i].pecas.length)return;const ss=g.segs.filter(s=>s.wi===i);const m=[(ss[0].x1+ss[ss.length-1].x2)/2-ss[0].hy*k*fs*1.2,(ss[0].y1+ss[ss.length-1].y2)/2+ss[0].hx*k*fs*1.2];const pp=rot(t,...m);
@@ -210,7 +210,7 @@ function imV(){
   if(imTab==='comodos'){
     h+=`<div class="card"><div class="row"><input id="novoRoom" placeholder="Novo cômodo (ex.: Sala)"><button class="pri" style="flex:none" data-a="novoRoom">Adicionar</button></div></div>`;
     h+='<div class="list">'+im.comodos.map(c=>{const g=geo(c);const b=bbox(g.segs);const dims=g.segs.length?`${fm(Math.round((b[2]-b[0])*100))} × ${fm(Math.round((b[3]-b[1])*100))} m`:'';
-      return `<div class="card" data-a="abrirRoom" data-id="${c.id}">${g.segs.length?svgRoom(c,{mini:1}):'<div class="mini"></div>'}<div style="flex:1"><b>${esc(c.nome)}</b><div class="mut">${dims}${(c.moveis||[]).length?` · ${c.moveis.length} móvel(is)`:''}</div>${statusBadge(c)}</div></div>`}).join('')+'</div>';
+      return `<div class="card" data-a="abrirRoom" data-id="${c.id}">${g.segs.length?svgRoom(c,{mini:1}):'<div class="mini"></div>'}<div style="flex:1"><b>${esc(c.nome)}</b><div class="mut">${dims}${(c.moveis||[]).length?` · ${c.moveis.length} móvel(is)`:''}</div>${statusBadge(c)}${(()=>{if(!(c.moveis||[]).length)return'';const A=Object.values(avisosMoveis(c));const n=A.reduce((s2,x)=>s2+x.av.length,0);return n?` <span class="badge ${A.some(x=>x.nivel==='bad')?'b-bad':'b-warn'}">móveis: ${n} aviso(s)</span>`:''})()}</div></div>`}).join('')+'</div>';
   }
   if(imTab==='planta'){
     const sv=svgPlan(im,res,{id:'plan',numeros:true,marcar:true});
@@ -226,6 +226,9 @@ function imV(){
     h+= prob.length?`<div class="status bad"><b>${prob.length} ponto(s) para conferir.</b> Gere o relatório para levar na hora de medir.</div>`:`<div class="status ok"><b>Nada para conferir.</b> As medidas fecham entre si.</div>`;
     h+=it.map(i=>`<div class="issue ${i.n}">${esc(i.t)}</div>`).join('');
     h+=`<button class="pri wide" data-a="relatorio">Relatório do que medir de novo (PDF)</button>`;
+    const mv=im.comodos.filter(c=>(c.moveis||[]).length).map(c=>{const A=avisosMoveis(c);const vs=new Set();return {c,av:Object.values(A).flatMap(x=>x.av).filter(x=>!vs.has(x.t)&&vs.add(x.t))}});
+    if(mv.length){h+=`<h2>Móveis</h2>`;const tot=mv.reduce((s2,x)=>s2+x.av.length,0);
+      h+= tot?mv.filter(x=>x.av.length).map(x=>`<div class="issue-h">${esc(x.c.nome)}</div>`+x.av.map(i=>`<div class="issue ${i.n}">${esc(i.t)}</div>`).join('')).join(''):`<div class="status ok"><b>Todos os móveis cabem com conforto.</b></div>`}
   }
   if(im.comodos.length){
     h+=`<h2>Exportar</h2><div class="grid2"><button data-a="pdf">PDF da planta</button><button data-a="dxf">Arquivo AutoCAD</button></div><p class="help">O arquivo do AutoCAD vem dentro de um .zip (DXF, em metros, tamanho real), com os cômodos encaixados como na aba Planta.</p><button class="ghost" data-a="json">Baixar cópia de segurança (.json)</button>`;
