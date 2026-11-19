@@ -190,7 +190,11 @@ function svgPlan(im,res,opt={}){
 }
 
 /* ===================== telas ===================== */
-function render(){const a=$('#app'); if(view.t==='home')a.innerHTML=homeV(); else if(view.t==='im')a.innerHTML=imV(); else if(view.t==='moveis')a.innerHTML=moveisV(); else a.innerHTML=roomV(); bind(); if(view.t==='moveis')bindMoveis()}
+let ultimaTela=null, voltandoPeloCelular=false;
+function telaPai(){ if(view.t==='moveis')return {t:'room',im:view.im,room:view.room}; if(view.t==='room')return {t:'im',im:view.im}; if(view.t==='im')return {t:'home'}; return null }
+window.addEventListener('popstate',()=>{const p=telaPai(); if(!p)return; voltandoPeloCelular=true; if(micOn)toggleMic(); movSel=null; confirmDel=null; catAberto=false; view=p; render()});
+function marcarHistorico(){const k=view.t+'|'+(view.im||'')+'|'+(view.room||''); if(k!==ultimaTela){ if(!voltandoPeloCelular&&ultimaTela!==null&&view.t!=='home'){try{history.pushState({k},'')}catch(e){}} ultimaTela=k } voltandoPeloCelular=false}
+function render(){const a=$('#app'); if(view.t==='home')a.innerHTML=homeV(); else if(view.t==='im')a.innerHTML=imV(); else if(view.t==='moveis')a.innerHTML=moveisV(); else a.innerHTML=roomV(); bind(); if(view.t==='moveis')bindMoveis(); marcarHistorico()}
 function statusBadge(c){
   if(!c.paredes.some(w=>w.pecas.length)) return '<span class="badge b-run">vazio</span>';
   if(!c.fechado) return '<span class="badge b-run">medindo</span>';
@@ -209,7 +213,7 @@ function homeV(){
 function imV(){
   const im=cur(); if(!im){view={t:'home'};return homeV()}
   const res=checks(im); const nProb=res.issues.filter(i=>i.n!=='info').length;
-  let h=`<div class="top"><button class="ghost" data-a="home">‹ Imóveis</button><h1>${esc(im.nome)}</h1></div>`;
+  let h=`<div class="top"><button class="back" data-a="home">‹ Voltar</button><h1>${esc(im.nome)}</h1></div>`;
   h+=`<div class="tabs">${[['comodos','Cômodos'],['planta','Planta'],['conf','Conferência'+(nProb?` (${nProb})`:'')]].map(([k,t])=>`<button class="${imTab===k?'on':''}" data-a="tab" data-k="${k}">${t}</button>`).join('')}</div>`;
   if(imTab==='comodos'){
     h+=`<div class="card"><div class="row"><input id="novoRoom" placeholder="Novo cômodo (ex.: Sala)"><button class="pri" style="flex:none" data-a="novoRoom">Adicionar</button></div></div>`;
@@ -256,7 +260,7 @@ function linkFormV(im){
 function roomV(){
   const im=cur(),c=room(); if(!c){view={t:'im',im:view.im};return imV()}
   const ci=closeInfo(c); const hasAny=c.paredes.some(w=>w.pecas.length);
-  let h=`<div class="top"><button class="ghost" data-a="voltarIm">‹ ${esc(im.nome)}</button><h1>${esc(c.nome)}</h1></div>`;
+  let h=`<div class="top"><button class="back" data-a="voltarIm">‹ Voltar</button><h1>${esc(c.nome)}</h1></div>`;
   h+=hasAny?svgRoom(c,{id:'draw'}):`<div id="draw" style="display:flex;align-items:center;justify-content:center;padding:18px;text-align:center" class="mut">Comece num canto ou na beirada de uma porta. Siga pela parede, digitando cada pedaço (parede, porta, janela). No canto, toque em virar à esquerda ou à direita.</div>`;
   if(c.fechado){const g=ci.g;const msg=ci.nivel==='ok'?'Fechou certinho.':ci.nivel==='warn'?'Pequena diferença, normal para trena.':'Não fechou. Vale medir de novo as paredes abaixo.';
     h+=`<div class="status ${ci.nivel}"><b>${msg}</b><div class="res"><table>

@@ -99,7 +99,7 @@ function moveisV(){
   c.moveis.forEach(m=>{if(m.id!==movSel)s+=svgMovel(m,m.x,m.y,m.rot||0,fs,{click:1,lados:ia(m).lados,nivel:ia(m).nivel})});
   const sm=c.moveis.find(m=>m.id===movSel); if(sm) s+=svgMovel(sm,sm.x,sm.y,sm.rot||0,fs,{click:1,sel:1,lados:ia(sm).lados,nivel:ia(sm).nivel});
   s+='</svg>';
-  let h2=`<div class="top"><button class="ghost" data-a="voltarRoom">‹ ${esc(c.nome)}</button><h1>Móveis</h1></div>`;
+  let h2=`<div class="top"><button class="back" data-a="voltarRoom">‹ Voltar</button><h1>Móveis · ${esc(c.nome)}</h1></div>`;
   h2+=`<div class="planbox">${s}</div>`;
   const todos=c.moveis.flatMap(m=>ia(m).av); const vist=new Set(); const lista=todos.filter(a=>!vist.has(a.t)&&vist.add(a.t));
   if(c.moveis.length) h2+= lista.length?`<div class="status ${lista.some(a=>a.n==='bad')?'bad':'warn'}"><b>${lista.length} aviso(s) neste cômodo</b>${lista.map(a=>`<div class="av ${a.n}">${esc(a.t)}</div>`).join('')}</div>`:`<div class="status ok"><b>Tudo cabe com conforto.</b></div>`;
