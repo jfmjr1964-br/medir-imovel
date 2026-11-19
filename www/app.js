@@ -362,6 +362,7 @@ function pdfDrawRoom(d,c,area,opt={}){
     d.setTextColor(...(sg.tipo==='parede'?[176,69,28]:hex(COL[sg.tipo])));d.text(fm(sg.cm),mx,my,{align:'center',baseline:'middle'})});
   g.wallStarts.forEach((p,i)=>{if(!c.paredes[i].pecas.length)return;const off=9/s;const[cx,cy]=P(p.x+p.hx*off*0.5-p.hy*k*off,p.y+p.hy*off*0.5+p.hx*k*off);
     const red=opt.marcar&&opt.marcar.has(i+1);d.setFillColor(...(red?[180,35,24]:[31,58,95]));d.circle(cx,cy,2.3,'F');d.setTextColor(255,255,255);d.setFontSize(7.5);d.text(String(i+1),cx,cy,{align:'center',baseline:'middle'})});
+  if(opt.moveis!==false) pdfMoveisPortas(d,c,g,P,s,{fonte:7.5,medidas:true});
 }
 function hex(h){return[1,3,5].map(i=>parseInt(h.slice(i,i+2),16))}
 function pdfPlan(d,im,res,area,opt={}){
@@ -373,7 +374,8 @@ function pdfPlan(d,im,res,area,opt={}){
       if(marked[c.id]&&marked[c.id].has(sg.wi+1)){d.setDrawColor(240,68,56);d.setLineWidth(2.6);d.setLineDashPattern([],0);d.line(p[0],p[1],q[0],q[1])}
       d.setDrawColor(...hex(COL[sg.tipo]));d.setLineWidth(sg.tipo==='janela'?1.3:0.6);d.setLineDashPattern(['porta','armario','passagem'].includes(sg.tipo)?[1.6,1.1]:[],0);d.line(p[0],p[1],q[0],q[1]);
       if(opt.medidas){const n=rotv(t,-sg.hy*k,sg.hx*k);const off=2.6/s;const m=P(...rot(t,(sg.x1+sg.x2)/2,(sg.y1+sg.y2)/2).map((v,i)=>v+n[i]*off));d.setFont('helvetica','normal');d.setFontSize(5.5);d.setTextColor(...(sg.tipo==='parede'?[176,69,28]:hex(COL[sg.tipo])));d.text(fm(sg.cm),m[0],m[1],{align:'center',baseline:'middle'})}});
-    d.setLineDashPattern([],0);const b=bbox(g.segs);const cc=P(...rot(t,(b[0]+b[2])/2,(b[1]+b[3])/2));d.setFont('helvetica','bold');d.setFontSize(9);d.setTextColor(31,58,95);d.text(c.nome,cc[0],cc[1],{align:'center',baseline:'middle'});
+    d.setLineDashPattern([],0);if(opt.moveis!==false)pdfMoveisPortas(d,c,g,(x,y)=>P(...rot(t,x,y)),s,{fonte:5,soDentro:true});
+    const b=bbox(g.segs);const cc=P(...rot(t,(b[0]+b[2])/2,(b[1]+b[3])/2));d.setFont('helvetica','bold');d.setFontSize(9);d.setTextColor(31,58,95);d.text(c.nome,cc[0],cc[1],{align:'center',baseline:'middle'});
     if(opt.numeros){g.wallStarts.forEach((p0,i)=>{if(!c.paredes[i].pecas.length)return;const ss=g.segs.filter(x=>x.wi===i);const off=4.5/s;const m=[(ss[0].x1+ss[ss.length-1].x2)/2-ss[0].hy*k*off,(ss[0].y1+ss[ss.length-1].y2)/2+ss[0].hx*k*off];const pp=P(...rot(t,...m));
       const red=marked[c.id]&&marked[c.id].has(i+1);d.setFillColor(...(red?[180,35,24]:[138,147,163]));d.circle(pp[0],pp[1],1.9,'F');d.setTextColor(255,255,255);d.setFontSize(6);d.text(String(i+1),pp[0],pp[1],{align:'center',baseline:'middle'})})}
   });
@@ -390,7 +392,9 @@ function pdf(){
     pdfDrawRoom(d,c,{x:22,y:30,w:166,h:150});
     let yy=192;d.setFont('helvetica','normal');d.setFontSize(10);d.setTextColor(29,36,51);
     c.paredes.forEach((wl,i)=>{if(!wl.pecas.length)return;const t=`Parede ${i+1}: `+wl.pecas.map(p=>(p.tipo==='parede'?'':TIPOS[p.tipo].toLowerCase()+' ')+fm(p.cm)).join(' + ')+(wl.virada==='E'?'  (vira à esquerda)':wl.virada==='D'?'  (vira à direita)':'');
-      if(yy>282){d.addPage();yy=20}d.text(t,15,yy);yy+=6})});
+      if(yy>282){d.addPage();yy=20}d.text(t,15,yy);yy+=6});
+    if((c.moveis||[]).length){yy+=2;if(yy>282){d.addPage();yy=20}d.setFont('helvetica','bold');d.text('Móveis:',15,yy);yy+=6;d.setFont('helvetica','normal');
+      c.moveis.forEach(m=>{if(yy>282){d.addPage();yy=20}d.text('• '+m.nome+' ('+(m.forma==='redonda'?'Ø '+fm(m.w):fm(m.w)+' × '+fm(m.d))+' m)',18,yy);yy+=5.5})}});
   baixar(slug(im.nome)+' - planta.pdf',d.output('blob'));
 }
 function relatorio(){
@@ -405,8 +409,8 @@ function relatorio(){
     d.text(lines,15,y);y+=lines.length*4.8+1.5;d.setFont('helvetica','normal');d.setTextColor(90,100,116);d.setFontSize(9);
     d.text('Medida nova: ______________________________________________',15,y+2);y+=9});
   const marcados={};it.forEach(i=>(i.w||[]).forEach(([rid,ws])=>{marcados[rid]=marcados[rid]||new Set();ws.forEach(x=>marcados[rid].add(x))}));
-  if(Object.keys(res.L.lay).length>1){d.addPage('a4','landscape');d.setFont('helvetica','bold');d.setFontSize(14);d.setTextColor(31,58,95);d.text('Planta - paredes para conferir em vermelho',14,14);pdfPlan(d,im,res,{x:14,y:22,w:269,h:178},{numeros:true,marcar:true})}
-  im.comodos.filter(c=>marcados[c.id]).forEach(c=>{d.addPage('a4','portrait');d.setFont('helvetica','bold');d.setFontSize(15);d.setTextColor(31,58,95);d.text(c.nome,15,18);pdfDrawRoom(d,c,{x:22,y:28,w:166,h:160},{marcar:marcados[c.id]});
+  if(Object.keys(res.L.lay).length>1){d.addPage('a4','landscape');d.setFont('helvetica','bold');d.setFontSize(14);d.setTextColor(31,58,95);d.text('Planta - paredes para conferir em vermelho',14,14);pdfPlan(d,im,res,{x:14,y:22,w:269,h:178},{numeros:true,marcar:true,moveis:false})}
+  im.comodos.filter(c=>marcados[c.id]).forEach(c=>{d.addPage('a4','portrait');d.setFont('helvetica','bold');d.setFontSize(15);d.setTextColor(31,58,95);d.text(c.nome,15,18);pdfDrawRoom(d,c,{x:22,y:28,w:166,h:160},{marcar:marcados[c.id],moveis:false});
     let yy=200;d.setFont('helvetica','normal');d.setFontSize(10);d.setTextColor(29,36,51);
     c.paredes.forEach((wl,i)=>{if(!wl.pecas.length)return;const red=marcados[c.id].has(i+1);d.setTextColor(...(red?[180,35,24]:[29,36,51]));d.setFont('helvetica',red?'bold':'normal');
       const t=`Parede ${i+1}: `+wl.pecas.map(p=>(p.tipo==='parede'?'':TIPOS[p.tipo].toLowerCase()+' ')+fm(p.cm)).join(' + ')+(red?'   nova: __________':'');if(yy>285){d.addPage();yy=20}d.text(t,15,yy);yy+=6})});
@@ -417,7 +421,7 @@ function dxf(){
   const im=cur();if(!window.JSZip){toast('Compactador não carregou. Confira a internet.');return}
   const res=checks(im);const {L}=res;const out=[];const add=(...a)=>a.forEach(v=>out.push(String(v)));
   add(0,'SECTION',2,'HEADER',9,'$ACADVER',1,'AC1009',9,'$INSUNITS',70,6,9,'$DWGCODEPAGE',3,'ANSI_1252',0,'ENDSEC');
-  const layers=[['PAREDES',7],['PORTAS',30],['JANELAS',5],['PASSAGENS',3],['ARMARIOS',8],['COTAS',1],['TEXTOS',3]];
+  const layers=[['PAREDES',7],['PORTAS',30],['JANELAS',5],['PASSAGENS',3],['ARMARIOS',8],['COTAS',1],['TEXTOS',3],['MOVEIS',4]];
   add(0,'SECTION',2,'TABLES',0,'TABLE',2,'LAYER',70,layers.length);layers.forEach(([n,c])=>add(0,'LAYER',2,n,70,0,62,c,6,'CONTINUOUS'));add(0,'ENDTAB',0,'ENDSEC');
   add(0,'SECTION',2,'ENTITIES');
   const line=(ly,a,b)=>add(0,'LINE',8,ly,10,a[0].toFixed(4),20,a[1].toFixed(4),30,0,11,b[0].toFixed(4),21,b[1].toFixed(4),31,0);
@@ -427,6 +431,7 @@ function dxf(){
       line(ly,rot(t,s.x1,s.y1),rot(t,s.x2,s.y2));const n=rotv(t,-s.hy*k,s.hx*k);const m=rot(t,(s.x1+s.x2)/2,(s.y1+s.y2)/2);
       const u=rotv(t,s.hx,s.hy);let ang=Math.atan2(u[1],u[0])*180/Math.PI;if(ang>90.5)ang-=180;if(ang<-89.5)ang+=180;
       text('COTAS',[m[0]+n[0]*0.12,m[1]+n[1]*0.12],0.07,fm(s.cm),ang)});
+    dxfMoveisPortas(add,c,g,t,line,text);
     const b=bbox(g.segs);text('TEXTOS',rot(t,(b[0]+b[2])/2,(b[1]+b[3])/2),0.15,c.nome)});
   add(0,'ENDSEC',0,'EOF');
   const z=new JSZip();z.file(slug(im.nome)+'.dxf',out.join('\r\n'));z.generateAsync({type:'blob'}).then(bl=>baixar(slug(im.nome)+' - autocad.zip',bl));
@@ -442,6 +447,7 @@ function bind(){
   ['lA','lB'].forEach(id=>{const e=$('#'+id);if(e)e.addEventListener('change',()=>{sync();if(id==='lA')linkForm.ai='';else linkForm.bi='';render()})});
   ['lAi','lBi','lE'].forEach(id=>{const e=$('#'+id);if(e)e.addEventListener('change',sync)});
   const imp=$('#imp');if(imp)imp.addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const j=JSON.parse(await f.text());
+    if(Array.isArray(j.meusMoveis)){const l=meusGet();j.meusMoveis.forEach(x=>{if(!l.some(y=>y.nome===x.nome&&y.w===x.w&&y.d===x.d))l.push(x)});meusSet(l)}
     const lista=(Array.isArray(j.imoveis)?j.imoveis:[j]).filter(x=>x&&x.id&&Array.isArray(x.comodos)).map(norm);if(!lista.length)throw 0;
     lista.forEach(x=>{const i=imoveis.findIndex(y=>y.id===x.id);if(i>=0)imoveis[i]=x;else imoveis.push(x);save(x)});
     if(lista.length===1){view={t:'im',im:lista[0].id};toast('Imóvel aberto.')}else{view={t:'home'};toast(lista.length+' imóveis abertos.')}render()}catch(err){toast('Arquivo não reconhecido.')}e.target.value=''});
@@ -466,7 +472,7 @@ function act(a,b){const im=cur();
     case 'delLink':im.ligacoes=im.ligacoes.filter(l=>l.id!==b.dataset.id);save(im);break;
     case 'pdf':pdf();return; case 'dxf':dxf();return; case 'relatorio':relatorio();return;
     case 'carregarMedido':fetch('dados/apartamento-medido.json').then(r=>r.json()).then(j=>{(j.imoveis||[j]).map(norm).forEach(x=>{const i=imoveis.findIndex(y=>y.id===x.id);if(i>=0)imoveis[i]=x;else imoveis.push(x);save(x)});view={t:'im',im:'apto-medido'};imTab='planta';render();toast('Apartamento carregado.')}).catch(()=>toast('Não consegui carregar. Confira a internet.'));return;
-    case 'jsonTodos':baixar('medir imovel - todos os imoveis - '+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({app:'Medir imóvel',data:new Date().toISOString(),imoveis},null,1));return;
+    case 'jsonTodos':baixar('medir imovel - todos os imoveis - '+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({app:'Medir imóvel',data:new Date().toISOString(),imoveis,meusMoveis:meusGet()},null,1));return;
     case 'json':baixar(slug(im.nome)+' - medidas.json',JSON.stringify(im,null,1));return;
     case 'askDelIm':confirmDel='im';break; case 'askDelRoom':confirmDel='room';break; case 'cancelDel':confirmDel=null;break;
     case 'delIm':removeIm(im);view={t:'home'};confirmDel=null;break;

@@ -112,10 +112,11 @@ function moveisV(){
       <label>Espaço livre para usar (cm)</label>
       <div class="grid4">${(sm.forma==='redonda'?[['f','Em volta']]:[['f','Frente'],['t','Trás'],['e','Esquerda'],['r','Direita']]).map(([k2,t])=>{const L2=ia(sm).lados[k2];return `<div><span class="mini-l">${t}</span><input data-uso="${k2}" inputmode="decimal" value="${(sm.uso||{})[k2]||0}">${L2?`<span class="livre ${L2.st}">tem ${L2.livre>=300?'+300':L2.livre}</span>`:''}</div>`}).join('')}</div>
       <p class="help">Esquerda e direita olhando o móvel de frente. A frente é o lado com a linha mais grossa.</p></div>
-      <button class="ghost" style="color:var(--bad)" data-a="movDel">Tirar este móvel</button></div>`;
+      <div class="row" style="margin-top:6px"><button class="ghost" data-a="meuSalvar">☆ Salvar nos meus móveis</button><button class="ghost" style="color:var(--bad)" data-a="movDel">Tirar este móvel</button></div></div>`;
   }
   h2+=`<button class="pri wide" data-a="catAbrir">+ Adicionar móvel</button>`;
-  if(catAberto){h2+=`<div class="card cat">`+CATALOGO.map(gr=>`<div class="cat-g">${gr.grupo}</div>`+gr.itens.map(it=>`<button class="cat-i" data-a="movAdd" data-id="${it.id}"><span>${esc(it.nome)}</span><span class="mut">${it.forma==='redonda'?'Ø '+it.w:it.w+' × '+it.d} cm</span></button>`).join('')).join('')+`</div>`}
+  const meus=meusGet();
+  if(catAberto){h2+=`<div class="card cat">`+(meus.length?`<div class="cat-g">Meus móveis</div>`+meus.map((it,i)=>`<div class="row" style="gap:4px"><button class="cat-i" style="flex:1" data-a="meuAdd" data-i="${i}"><span>${esc(it.nome)}</span><span class="mut">${it.forma==='redonda'?'Ø '+it.w:it.w+' × '+it.d} cm</span></button><button class="ghost" style="flex:none;color:var(--bad)" data-a="meuDel" data-i="${i}" aria-label="Apagar">✕</button></div>`).join(''):'')+CATALOGO.map(gr=>`<div class="cat-g">${gr.grupo}</div>`+gr.itens.map(it=>`<button class="cat-i" data-a="movAdd" data-id="${it.id}"><span>${esc(it.nome)}</span><span class="mut">${it.forma==='redonda'?'Ø '+it.w:it.w+' × '+it.d} cm</span></button>`).join('')).join('')+`</div>`}
   if(c.moveis.length){h2+=`<h2>Neste cômodo</h2><div class="walls">`+c.moveis.map(m=>`<div data-a="movSel" data-id="${m.id}" style="cursor:pointer"><span style="flex:1">${esc(m.nome)}</span><span class="mut">${m.forma==='redonda'?'Ø '+m.w:m.w+' × '+m.d} cm</span>${ia(m).nivel!=='ok'?`<span class="dot ${ia(m).nivel}"></span>`:''}</div>`).join('')+`</div>`}
   return h2;
 }
@@ -123,17 +124,32 @@ function movCentro(c){const g=geo(c),b=bbox(g.segs);return[(b[0]+b[2])/2,(b[1]+b
 function movAdd(id){const im=cur(),c=room(),it=CAT_IDX[id];if(!it)return;c.moveis=c.moveis||[];const[x,y]=movCentro(c);
   const m={id:uid(),cat:id,nome:it.nome,w:it.w,d:it.d,forma:it.forma||null,uso:{...it.uso},x,y,rot:0};c.moveis.push(m);movSel=m.id;catAberto=false;save(im)}
 /* encosta na parede: paredes do cômodo são horizontais/verticais no próprio cômodo */
-function movSnap(c,m){
-  const g=geo(c),fp=footprint(m),tol=0.12;
-  const L=m.x-fp.w/2,R=m.x+fp.w/2,B=m.y-fp.d/2,T=m.y+fp.d/2;
-  let bx=null,by=null;
+const SOLTOS=new Set(['mesa4','mesa6','mesa8','mesa_red','mesa2','centro','cadeira']);
+function distParedes(c,m){
+  const g=geo(c),b=corpo(m),out=[];
   g.segs.forEach(s=>{
-    if(Math.abs(s.x1-s.x2)<1e-6){ const wx=s.x1, y0=Math.min(s.y1,s.y2), y1=Math.max(s.y1,s.y2); if(Math.min(T,y1)-Math.max(B,y0)<0.05)return;
-      [[L,wx-L],[R,wx-R]].forEach(([e,dx])=>{if(Math.abs(dx)<tol&&(bx===null||Math.abs(dx)<Math.abs(bx)))bx=dx}) }
-    else if(Math.abs(s.y1-s.y2)<1e-6){ const wy=s.y1, x0=Math.min(s.x1,s.x2), x1=Math.max(s.x1,s.x2); if(Math.min(R,x1)-Math.max(L,x0)<0.05)return;
-      [[B,wy-B],[T,wy-T]].forEach(([e,dy])=>{if(Math.abs(dy)<tol&&(by===null||Math.abs(dy)<Math.abs(by)))by=dy}) }
+    if(Math.abs(s.x1-s.x2)<1e-6){const y0=Math.min(s.y1,s.y2),y1=Math.max(s.y1,s.y2);if(Math.min(b.T,y1)-Math.max(b.B,y0)<0.05)return;
+      out.push({dir:[1,0],d:s.x1-b.R,pos:s.x1},{dir:[-1,0],d:b.L-s.x1,pos:s.x1})}
+    else if(Math.abs(s.y1-s.y2)<1e-6){const x0=Math.min(s.x1,s.x2),x1=Math.max(s.x1,s.x2);if(Math.min(b.R,x1)-Math.max(b.L,x0)<0.05)return;
+      out.push({dir:[0,1],d:s.y1-b.T,pos:s.y1},{dir:[0,-1],d:b.B-s.y1,pos:s.y1})}
   });
-  if(bx!==null)m.x+=bx; if(by!==null)m.y+=by;
+  return out.filter(o=>o.d>-0.6);
+}
+function encostar(m,o){const fp=footprint(m);if(o.dir[0]===1)m.x=o.pos-fp.w/2;else if(o.dir[0]===-1)m.x=o.pos+fp.w/2;else if(o.dir[1]===1)m.y=o.pos-fp.d/2;else m.y=o.pos+fp.d/2}
+function movSnap(c,m,girar){
+  const tol=0.30;
+  let ws=distParedes(c,m).filter(o=>o.d<=tol).sort((x,y)=>Math.abs(x.d)-Math.abs(y.d));
+  if(!ws.length) return;
+  const w0=ws[0];
+  if(girar&&m.forma!=='redonda'&&!SOLTOS.has(m.cat)&&!((m.uso||{}).t)){
+    const alvo={'0,1':0,'1,0':270,'-1,0':90,'0,-1':180}[w0.dir.join()];
+    if(alvo!==undefined&&alvo!==(m.rot||0)){m.rot=alvo;const again=distParedes(c,m).filter(o=>o.dir.join()===w0.dir.join()).sort((x,y)=>Math.abs(x.d)-Math.abs(y.d));if(again[0])encostar(m,again[0]);else encostar(m,w0)}
+    else encostar(m,w0);
+  } else encostar(m,w0);
+  /* no outro sentido, só gruda se estiver bem perto (canto) */
+  const eixo=w0.dir[0]!==0?1:0;
+  const ws2=distParedes(c,m).filter(o=>o.dir[eixo]!==0&&o.d<=0.15).sort((x,y)=>Math.abs(x.d)-Math.abs(y.d));
+  if(ws2[0]) encostar(m,ws2[0]);
 }
 function svgPt(svg,ev){const p=svg.createSVGPoint();p.x=ev.clientX;p.y=ev.clientY;const q=p.matrixTransform(svg.getScreenCTM().inverse());return[q.x,-q.y]}
 function bindMoveis(){
@@ -147,7 +163,7 @@ function bindMoveis(){
   });
   const mv=ev=>{if(!drag)return;const s2=$('#mvsvg');const p=svgPt(s2,ev);drag.m.x=p[0]+drag.dx;drag.m.y=p[1]+drag.dy;drag.moved=true;
     const gEl=s2.querySelector(`[data-mov="${drag.m.id}"]`); if(gEl) gEl.setAttribute('transform',`translate(${drag.m.x} ${-drag.m.y}) rotate(${-(drag.m.rot||0)})`); ev.preventDefault()};
-  const up=()=>{if(!drag)return;const c=room();if(drag.moved){movSnap(c,drag.m);drag.m.x=Math.round(drag.m.x*100)/100;drag.m.y=Math.round(drag.m.y*100)/100;save(cur())}drag=null;render()};
+  const up=()=>{if(!drag)return;const c=room();if(drag.moved){movSnap(c,drag.m,true);drag.m.x=Math.round(drag.m.x*100)/100;drag.m.y=Math.round(drag.m.y*100)/100;save(cur())}drag=null;render()};
   document.onpointermove=mv; document.onpointerup=up; document.onpointercancel=up;
   const nome=$('#mvNome'); if(nome) nome.addEventListener('change',e=>{const m=room().moveis.find(x=>x.id===movSel);m.nome=e.target.value.trim()||m.nome;save(cur());render()});
   [['mvW','w'],['mvD','d']].forEach(([id,k])=>{const e=$('#'+id);if(e)e.addEventListener('change',ev=>{const m=room().moveis.find(x=>x.id===movSel);const v=Math.round(parseFloat(ev.target.value.replace(',','.')));if(v>0){m[k]=v;if(m.forma==='redonda')m.d=m.w;save(cur())}render()})});
@@ -166,6 +182,9 @@ function actMoveis(a,b){const im=cur(),c=room();const m=c&&c.moveis&&c.moveis.fi
     case 'movDup':if(m){const n={...m,uso:{...m.uso},id:uid(),x:m.x+0.3,y:m.y-0.3};c.moveis.push(n);movSel=n.id;save(im)}return true;
     case 'portaAbre':portaSet(im,c,b.dataset.k,'abre',b.dataset.v);save(im);return true;
     case 'portaDob':portaSet(im,c,b.dataset.k,'dob',b.dataset.v);save(im);return true;
+    case 'meuSalvar':if(m){const l=meusGet().filter(x=>!(x.nome===m.nome&&x.w===m.w&&x.d===m.d));l.unshift({cat:m.cat,nome:m.nome,w:m.w,d:m.d,forma:m.forma||null,uso:{...m.uso}});meusSet(l);toast('Salvo nos seus móveis.')}return true;
+    case 'meuAdd':{const it=meusGet()[+b.dataset.i];if(!it)return true;c.moveis=c.moveis||[];const[x,y]=movCentro(c);const n={id:uid(),cat:it.cat,nome:it.nome,w:it.w,d:it.d,forma:it.forma,uso:{...it.uso},x,y,rot:0};c.moveis.push(n);movSel=n.id;catAberto=false;save(im);return true}
+    case 'meuDel':{const l=meusGet();l.splice(+b.dataset.i,1);meusSet(l);return true}
     case 'movDel':if(m){c.moveis=c.moveis.filter(x=>x.id!==m.id);movSel=null;save(im)}return true;
   }
   return false;
@@ -288,3 +307,36 @@ function portaSet(im,c,key,campo,v){
     if(campo==='abre') q.abre=v==='dentro'?'fora':v==='fora'?'dentro':'correr'; else q.dob=v==='E'?'D':'E';
   });
 }
+
+/* ===================== etapa 4: móveis e portas no PDF e no AutoCAD ===================== */
+function arcoPontos(a,n){const aC=Math.atan2(a.C[1]-a.H[1],a.C[0]-a.H[0]),aO=Math.atan2(a.O[1]-a.H[1],a.O[0]-a.H[0]);let dl=aO-aC;while(dl>Math.PI)dl-=2*Math.PI;while(dl<-Math.PI)dl+=2*Math.PI;
+  const pts=[];for(let i=0;i<=n;i++){const t=aC+dl*i/n;pts.push([a.H[0]+a.w*Math.cos(t),a.H[1]+a.w*Math.sin(t)])}return pts}
+/* Q: (x,y) do cômodo -> (x,y) da página; esc: mm por metro */
+function pdfMoveisPortas(d,c,g,Q,esc,opt={}){
+  g.segs.forEach(s=>{const a=portaArco(s,g.inLeft);if(!a||(opt.soDentro&&!a.dentro))return;
+    d.setDrawColor(217,130,43);d.setLineWidth(0.25);d.setLineDashPattern([1.2,0.9],0);const pts=arcoPontos(a,14).map(p=>Q(...p));
+    for(let i=1;i<pts.length;i++)d.line(pts[i-1][0],pts[i-1][1],pts[i][0],pts[i][1]);
+    d.setLineDashPattern([],0);d.setLineWidth(0.5);const h=Q(...a.H),o=Q(...a.O);d.line(h[0],h[1],o[0],o[1])});
+  (c.moveis||[]).forEach(m=>{d.setDrawColor(43,84,135);d.setFillColor(238,242,247);d.setLineWidth(0.35);d.setLineDashPattern([],0);
+    if(m.forma==='redonda'){const p=Q(m.x,m.y);d.circle(p[0],p[1],m.w/200*esc,'FD')}
+    else{const b=corpo(m);const pts=[[b.L,b.B],[b.R,b.B],[b.R,b.T],[b.L,b.T]].map(p=>Q(...p));d.lines(pts.slice(1).map((p,i)=>[p[0]-pts[i][0],p[1]-pts[i][1]]),pts[0][0],pts[0][1],[1,1],'FD',true)}
+    if(opt.nomes!==false){const p=Q(m.x,m.y);const fp=footprint(m);const larg=fp.w*esc*0.92;let fz=opt.fonte||7;d.setFont('helvetica','bold');d.setFontSize(fz);
+      let nome=m.nome;while(d.getTextWidth(nome)>larg&&fz>4.5){fz-=0.5;d.setFontSize(fz)}
+      if(d.getTextWidth(nome)>larg){const pal=nome.split(' ');nome=pal[0];if(d.getTextWidth(nome)>larg){while(nome.length>2&&d.getTextWidth(nome+'.')>larg)nome=nome.slice(0,-1);nome+='.'}}
+      d.setTextColor(31,58,95);d.text(nome,p[0],p[1],{align:'center',baseline:'middle'});
+      if(opt.medidas&&fp.d*esc>fz*0.9){const med=m.forma==='redonda'?'Ø '+fm(m.w):fm(m.w)+' × '+fm(m.d);d.setFont('helvetica','normal');let f2=Math.max(4,fz-1.5);d.setFontSize(f2);
+        if(d.getTextWidth(med)<=larg){d.setTextColor(90,100,116);d.text(med,p[0],p[1]+fz*0.45,{align:'center',baseline:'middle'})}}}
+  });
+}
+function dxfMoveisPortas(add,c,g,t,line,text){
+  g.segs.forEach(s=>{const a=portaArco(s,g.inLeft);if(!a||!a.dentro)return;const H=rot(t,...a.H),C=rot(t,...a.C),O=rot(t,...a.O);
+    let aC=Math.atan2(C[1]-H[1],C[0]-H[0])*180/Math.PI,aO=Math.atan2(O[1]-H[1],O[0]-H[0])*180/Math.PI;const ccw=((aO-aC)%360+360)%360;
+    const [a1,a2]=ccw<=180?[aC,aO]:[aO,aC];add(0,'ARC',8,'PORTAS',10,H[0].toFixed(4),20,H[1].toFixed(4),30,0,40,a.w.toFixed(4),50,a1.toFixed(2),51,a2.toFixed(2));line('PORTAS',H,O)});
+  (c.moveis||[]).forEach(m=>{const p=rot(t,m.x,m.y);
+    if(m.forma==='redonda') add(0,'CIRCLE',8,'MOVEIS',10,p[0].toFixed(4),20,p[1].toFixed(4),30,0,40,(m.w/200).toFixed(4));
+    else{const b=corpo(m);const pts=[[b.L,b.B],[b.R,b.B],[b.R,b.T],[b.L,b.T]].map(q=>rot(t,...q));for(let i=0;i<4;i++)line('MOVEIS',pts[i],pts[(i+1)%4])}
+    text('MOVEIS',p,0.08,m.nome)});
+}
+/* ===================== meus móveis ===================== */
+function meusGet(){try{return JSON.parse(localStorage.getItem('medir_meus_moveis')||'[]')}catch(e){return[]}}
+function meusSet(l){try{localStorage.setItem('medir_meus_moveis',JSON.stringify(l))}catch(e){}}
