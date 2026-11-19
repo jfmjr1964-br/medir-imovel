@@ -21,6 +21,9 @@ const CATALOGO=[
   {id:'sofa3',nome:'Sofá 3 lugares',w:210,d:95,uso:{f:45,t:0,e:0,r:0}},
   {id:'poltrona',nome:'Poltrona',w:80,d:85,uso:{f:45,t:0,e:0,r:0}},
   {id:'centro',nome:'Mesa de centro',w:100,d:50,uso:{f:0,t:0,e:0,r:0}},
+  {id:'lateral',nome:'Mesa lateral (ao lado do sofá)',w:45,d:45,uso:{f:0,t:0,e:0,r:0}},
+  {id:'canto',nome:'Mesa de canto',w:60,d:60,uso:{f:0,t:0,e:0,r:0}},
+  {id:'puff',nome:'Pufe',w:45,d:45,uso:{f:0,t:0,e:0,r:0}},
   {id:'rack',nome:'Rack / painel de TV',w:180,d:45,uso:{f:0,t:0,e:0,r:0}},
   {id:'estante',nome:'Estante',w:100,d:35,uso:{f:60,t:0,e:0,r:0}},
  ]},
@@ -124,7 +127,7 @@ function movCentro(c){const g=geo(c),b=bbox(g.segs);return[(b[0]+b[2])/2,(b[1]+b
 function movAdd(id){const im=cur(),c=room(),it=CAT_IDX[id];if(!it)return;c.moveis=c.moveis||[];const[x,y]=movCentro(c);
   const m={id:uid(),cat:id,nome:it.nome,w:it.w,d:it.d,forma:it.forma||null,uso:{...it.uso},x,y,rot:0};c.moveis.push(m);movSel=m.id;catAberto=false;save(im)}
 /* encosta na parede: paredes do cômodo são horizontais/verticais no próprio cômodo */
-const SOLTOS=new Set(['mesa4','mesa6','mesa8','mesa_red','mesa2','centro','cadeira']);
+const SOLTOS=new Set(['mesa4','mesa6','mesa8','mesa_red','mesa2','centro','cadeira','lateral','canto','puff']);
 function distParedes(c,m){
   const g=geo(c),b=corpo(m),out=[];
   g.segs.forEach(s=>{
