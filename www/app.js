@@ -363,6 +363,7 @@ function pdfDrawRoom(d,c,area,opt={}){
   g.wallStarts.forEach((p,i)=>{if(!c.paredes[i].pecas.length)return;const off=9/s;const[cx,cy]=P(p.x+p.hx*off*0.5-p.hy*k*off,p.y+p.hy*off*0.5+p.hx*k*off);
     const red=opt.marcar&&opt.marcar.has(i+1);d.setFillColor(...(red?[180,35,24]:[31,58,95]));d.circle(cx,cy,2.3,'F');d.setTextColor(255,255,255);d.setFontSize(7.5);d.text(String(i+1),cx,cy,{align:'center',baseline:'middle'})});
   if(opt.moveis!==false) pdfMoveisPortas(d,c,g,P,s,{fonte:7.5,medidas:true});
+  if(opt.moveis!==false&&typeof pdfCotas==='function') pdfCotas(d,c,P);
 }
 function hex(h){return[1,3,5].map(i=>parseInt(h.slice(i,i+2),16))}
 function pdfPlan(d,im,res,area,opt={}){
@@ -455,7 +456,7 @@ function dxf(){
   const im=cur();if(!window.JSZip){toast('Compactador não carregou. Confira a internet.');return}
   const res=checks(im);const {L}=res;const out=[];const add=(...a)=>a.forEach(v=>out.push(String(v)));
   add(0,'SECTION',2,'HEADER',9,'$ACADVER',1,'AC1009',9,'$INSUNITS',70,6,9,'$DWGCODEPAGE',3,'ANSI_1252',0,'ENDSEC');
-  const layers=[['PAREDES',7],['PORTAS',30],['JANELAS',5],['PASSAGENS',3],['ARMARIOS',8],['COTAS',1],['TEXTOS',3],['MOVEIS',4]];
+  const layers=[['PAREDES',7],['PORTAS',30],['JANELAS',5],['PASSAGENS',3],['ARMARIOS',8],['COTAS',1],['TEXTOS',3],['MOVEIS',4],['COTAS-MOVEIS',6]];
   add(0,'SECTION',2,'TABLES',0,'TABLE',2,'LAYER',70,layers.length);layers.forEach(([n,c])=>add(0,'LAYER',2,n,70,0,62,c,6,'CONTINUOUS'));add(0,'ENDTAB',0,'ENDSEC');
   add(0,'SECTION',2,'ENTITIES');
   const line=(ly,a,b)=>add(0,'LINE',8,ly,10,a[0].toFixed(4),20,a[1].toFixed(4),30,0,11,b[0].toFixed(4),21,b[1].toFixed(4),31,0);

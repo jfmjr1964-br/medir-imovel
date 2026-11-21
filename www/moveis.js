@@ -58,7 +58,7 @@ const CATALOGO=[
  ]},
 ];
 const CAT_IDX={}; CATALOGO.forEach(g=>g.itens.forEach(i=>CAT_IDX[i.id]=i));
-let movSel=null, catAberto=false, drag=null;
+let movSel=null, catAberto=false, drag=null, mvFs=0.2;
 
 function footprint(m){const r=((m.rot||0)%180+180)%180===90;return{w:(r?m.d:m.w)/100,d:(r?m.w:m.d)/100}}
 /* desenho de um móvel, em coordenadas do SVG (y invertido). x,y = centro em metros (mundo); ang = graus no sentido do mundo */
@@ -101,12 +101,13 @@ function moveisV(){
   const AV=avisosMoveis(c); const ia=m=>AV[m.id]||{av:[],lados:{},nivel:'ok'};
   c.moveis.forEach(m=>{if(m.id!==movSel)s+=svgMovel(m,m.x,m.y,m.rot||0,fs,{click:1,lados:ia(m).lados,nivel:ia(m).nivel})});
   const sm=c.moveis.find(m=>m.id===movSel); if(sm) s+=svgMovel(sm,sm.x,sm.y,sm.rot||0,fs,{click:1,sel:1,lados:ia(sm).lados,nivel:ia(sm).nivel});
+  mvFs=fs; s+=`<g id="mvCotas" style="pointer-events:none">${sm?svgCotas(c,sm,fs):''}</g>`;
   s+='</svg>';
   let h2=`<div class="top"><button class="back" data-a="voltarRoom">‹ Voltar</button><h1>Móveis · ${esc(c.nome)}</h1></div>`;
   h2+=`<div class="planbox">${s}</div>`;
   const todos=c.moveis.flatMap(m=>ia(m).av); const vist=new Set(); const lista=todos.filter(a=>!vist.has(a.t)&&vist.add(a.t));
   if(c.moveis.length) h2+= lista.length?`<div class="status ${lista.some(a=>a.n==='bad')?'bad':'warn'}"><b>${lista.length} aviso(s) neste cômodo</b>${lista.map(a=>`<div class="av ${a.n}">${esc(a.t)}</div>`).join('')}</div>`:`<div class="status ok"><b>Tudo cabe com conforto.</b></div>`;
-  h2+=`<p class="help">Arraste o móvel com o dedo. Perto da parede, ele encosta sozinho. Faixa amarela: espaço livre com conforto. Laranja: apertado, mas dá. Vermelho: abaixo do mínimo.</p>`;
+  h2+=`<p class="help">Arraste o móvel com o dedo. Perto da parede, ele encosta sozinho. Faixa amarela: espaço livre com conforto. Laranja: apertado, mas dá. Vermelho: abaixo do mínimo. Toque num móvel para ver, em centímetros, quanto falta até a parede, o outro móvel ou a próxima porta, passagem ou janela.</p>`;
   if(sm){const fr=v=>esc(v);
     h2+=`<div class="card"><div class="row" style="align-items:center"><b style="flex:1">${esc(sm.nome)}</b><button class="ghost" data-a="movDesel">Fechar</button></div>
       <div class="grid2" style="margin-top:6px"><button class="turn" data-a="movGirar">↻ Girar 90°</button><button data-a="movDup">Duplicar</button></div>
@@ -165,7 +166,7 @@ function bindMoveis(){
     ev.preventDefault();
   });
   const mv=ev=>{if(!drag)return;const s2=$('#mvsvg');const p=svgPt(s2,ev);drag.m.x=p[0]+drag.dx;drag.m.y=p[1]+drag.dy;drag.moved=true;
-    const gEl=s2.querySelector(`[data-mov="${drag.m.id}"]`); if(gEl) gEl.setAttribute('transform',`translate(${drag.m.x} ${-drag.m.y}) rotate(${-(drag.m.rot||0)})`); ev.preventDefault()};
+    const gEl=s2.querySelector(`[data-mov="${drag.m.id}"]`); if(gEl) gEl.setAttribute('transform',`translate(${drag.m.x} ${-drag.m.y}) rotate(${-(drag.m.rot||0)})`); const gc=s2.querySelector('#mvCotas'); if(gc) gc.innerHTML=svgCotas(room(),drag.m,mvFs); ev.preventDefault()};
   const up=()=>{if(!drag)return;const c=room();if(drag.moved){movSnap(c,drag.m,true);drag.m.x=Math.round(drag.m.x*100)/100;drag.m.y=Math.round(drag.m.y*100)/100;save(cur())}drag=null;render()};
   document.onpointermove=mv; document.onpointerup=up; document.onpointercancel=up;
   const nome=$('#mvNome'); if(nome) nome.addEventListener('change',e=>{const m=room().moveis.find(x=>x.id===movSel);m.nome=e.target.value.trim()||m.nome;save(cur());render()});
@@ -222,6 +223,50 @@ function livreLado(m,lado,paredes,outros){
   /* nas laterais vale o espaço que existe em pelo menos 70% do lado (ex.: criado-mudo na cabeceira não conta); frente e trás usam o ponto mais apertado */
   const val=(lado==='e'||lado==='r')&&m.forma!=='redonda'?vals[Math.floor(vals.length*0.3)]:vals[0];
   return Math.round(val*100);
+}
+/* ===================== medidas em volta do móvel ===================== */
+/* para cada um dos 4 lados: quanto falta até a parede, o outro móvel, ou o começo de uma porta/passagem/janela na parede encostada */
+function cotasMovel(c,m){
+  const g=geo(c); if(!g.segs.length) return [];
+  const b=corpo(m); const outros=(c.moveis||[]).filter(o=>o.id!==m.id).map(corpo);
+  const aberturas=g.segs.filter(s=>s.tipo==='porta'||s.tipo==='passagem'||s.tipo==='janela');
+  const out=[]; const MAX=6, PERTO=0.35, cy=(b.B+b.T)/2, cx=(b.L+b.R)/2;
+  [[1,0],[-1,0],[0,1],[0,-1]].forEach(dir=>{
+    const hz=dir[0]!==0; const face=hz?(dir[0]>0?b.R:b.L):(dir[1]>0?b.T:b.B);
+    const px=hz?face:cx, py=hz?cy:face;
+    // a) até a parede ou o móvel em frente, saindo do meio do lado
+    const dd=raio(px,py,dir,g.segs,outros,MAX);
+    if(dd<MAX-0.01) out.push({x1:px,y1:py,x2:px+dir[0]*dd,y2:py+dir[1]*dd,cm:Math.round(dd*100),tipo:'livre'});
+    // b) ao longo de uma parede encostada: até o começo da porta/passagem/janela
+    aberturas.forEach(s=>{
+      const par=hz?Math.abs(s.y1-s.y2)<1e-6:Math.abs(s.x1-s.x2)<1e-6; if(!par) return;
+      const lin=hz?s.y1:s.x1; const lo=hz?b.B:b.L, hi=hz?b.T:b.R;
+      const lado=(lin<=lo+0.01&&lo-lin<=PERTO)?-1:(lin>=hi-0.01&&lin-hi<=PERTO)?1:0; if(!lado) return;
+      const a0=hz?Math.min(s.x1,s.x2):Math.min(s.y1,s.y2), a1=hz?Math.max(s.x1,s.x2):Math.max(s.y1,s.y2);
+      const sgn=hz?dir[0]:dir[1]; const perto2=sgn>0?a0:a1; const dist=(perto2-face)*sgn;
+      const cobre=Math.min(a1,hz?b.R:b.T)-Math.max(a0,hz?b.L:b.B);
+      const yv=lado<0?lo+0.06:hi-0.06;
+      if(cobre>0.02){ if(sgn>0) out.push({x1:hz?Math.max(a0,b.L):yv,y1:hz?yv:Math.max(a0,b.B),x2:hz?Math.min(a1,b.R):yv,y2:hz?yv:Math.min(a1,b.T),cm:Math.round(cobre*100),tipo:s.tipo,invade:true}); return }
+      if(dist<-0.005||dist>MAX) return;
+      out.push({x1:hz?face:yv,y1:hz?yv:face,x2:hz?face+dir[0]*dist:yv,y2:hz?yv:face+dir[1]*dist,cm:Math.round(dist*100),tipo:s.tipo});
+    });
+  });
+  // só a abertura mais perto em cada sentido
+  const vist={}; return out.filter(q=>{if(q.tipo==='livre'||q.invade)return true;const k=(q.x2-q.x1>0?'r':q.x2-q.x1<0?'l':q.y2-q.y1>0?'t':'b');if(vist[k]!==undefined&&vist[k]<=q.cm)return false;vist[k]=q.cm;return true})
+    .filter((q,i,arr)=>{if(q.tipo==='livre'||q.invade)return true;const k=(q.x2-q.x1>0?'r':q.x2-q.x1<0?'l':q.y2-q.y1>0?'t':'b');return vist[k]===q.cm});
+}
+const COTA_COR={livre:'#5b6475',porta:'#d9822b',passagem:'#2e7d32',janela:'#2e7bd6'};
+const COTA_NOME={porta:'porta',passagem:'passagem',janela:'janela'};
+function svgCotas(c,m,fs){
+  let o=''; const sw=fs*0.06, f=fs*0.55;
+  cotasMovel(c,m).forEach(q=>{const cor=q.invade?'#d92d20':COTA_COR[q.tipo];const hz=Math.abs(q.y1-q.y2)<1e-6;
+    const tk=fs*0.18; const t1=hz?`M ${q.x1} ${-q.y1-tk} V ${-q.y1+tk} M ${q.x2} ${-q.y2-tk} V ${-q.y2+tk}`:`M ${q.x1-tk} ${-q.y1} H ${q.x1+tk} M ${q.x2-tk} ${-q.y2} H ${q.x2+tk}`;
+    o+=`<path d="M ${q.x1} ${-q.y1} L ${q.x2} ${-q.y2} ${t1}" stroke="${cor}" stroke-width="${sw}" fill="none" ${q.invade?'':`stroke-dasharray="${fs*0.2} ${fs*0.12}"`}/>`;
+    if(q.cm<1&&!q.invade) return;
+    const txt=q.invade?`invade ${COTA_NOME[q.tipo]} ${q.cm}`:q.tipo==='livre'?`${q.cm}`:`${q.cm} até ${COTA_NOME[q.tipo]}`;
+    const mx=(q.x1+q.x2)/2, my=(q.y1+q.y2)/2; const w2=txt.length*f*0.55+f*0.4;
+    o+=`<g transform="translate(${mx} ${-my})${hz?'':' rotate(-90)'}"><rect x="${-w2/2}" y="${-f*0.65}" width="${w2}" height="${f*1.3}" rx="${f*0.3}" fill="#fff" fill-opacity=".92" stroke="${cor}" stroke-width="${sw*0.7}"/><text x="0" y="0" font-size="${f}" text-anchor="middle" dominant-baseline="central" fill="${cor}" font-family="sans-serif" font-weight="700">${txt}</text></g>`});
+  return o;
 }
 function avisosMoveis(c){
   const res={}; const g=geo(c); const ms=c.moveis||[]; if(!ms.length||!g.segs.length) return res;
@@ -315,6 +360,19 @@ function portaSet(im,c,key,campo,v){
 function arcoPontos(a,n){const aC=Math.atan2(a.C[1]-a.H[1],a.C[0]-a.H[0]),aO=Math.atan2(a.O[1]-a.H[1],a.O[0]-a.H[0]);let dl=aO-aC;while(dl>Math.PI)dl-=2*Math.PI;while(dl<-Math.PI)dl+=2*Math.PI;
   const pts=[];for(let i=0;i<=n;i++){const t=aC+dl*i/n;pts.push([a.H[0]+a.w*Math.cos(t),a.H[1]+a.w*Math.sin(t)])}return pts}
 /* Q: (x,y) do cômodo -> (x,y) da página; esc: mm por metro */
+function pdfCotas(d,c,Q){
+  const vist=new Set();
+  (c.moveis||[]).forEach(m=>cotasMovel(c,m).forEach(q=>{if(!q.invade&&(q.cm<1||q.cm>300))return;
+    const k=[q.x1,q.y1,q.x2,q.y2].map(v=>Math.round(v*50)).sort().join();if(vist.has(k))return;vist.add(k);
+    const cor=q.invade?[217,45,32]:hex(COTA_COR[q.tipo]);const a=Q(q.x1,q.y1),b=Q(q.x2,q.y2);
+    d.setDrawColor(...cor);d.setLineWidth(0.2);d.setLineDashPattern(q.invade?[]:[0.8,0.5],0);d.line(a[0],a[1],b[0],b[1]);d.setLineDashPattern([],0);
+    const hz=Math.abs(a[1]-b[1])<0.01;const tk=0.9;
+    if(hz){d.line(a[0],a[1]-tk,a[0],a[1]+tk);d.line(b[0],b[1]-tk,b[0],b[1]+tk)}else{d.line(a[0]-tk,a[1],a[0]+tk,a[1]);d.line(b[0]-tk,b[1],b[0]+tk,b[1])}
+    const txt=q.invade?'invade '+COTA_NOME[q.tipo]+' '+q.cm:q.tipo==='livre'?String(q.cm):q.cm+' até '+COTA_NOME[q.tipo];
+    d.setFont('helvetica','bold');d.setFontSize(6);const tw=d.getTextWidth(txt);const mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2;
+    d.setFillColor(255,255,255);if(hz)d.rect(mx-tw/2-0.6,my-1.5,tw+1.2,3,'F');else d.rect(mx-1.5,my-tw/2-0.6,3,tw+1.2,'F');
+    d.setTextColor(...cor);d.text(txt,mx,my,{align:'center',baseline:'middle',angle:hz?0:90})}));
+}
 function pdfMoveisPortas(d,c,g,Q,esc,opt={}){
   g.segs.forEach(s=>{const a=portaArco(s,g.inLeft);if(!a||(opt.soDentro&&!a.dentro))return;
     d.setDrawColor(217,130,43);d.setLineWidth(0.25);d.setLineDashPattern([1.2,0.9],0);const pts=arcoPontos(a,14).map(p=>Q(...p));
@@ -339,6 +397,10 @@ function dxfMoveisPortas(add,c,g,t,line,text){
     if(m.forma==='redonda') add(0,'CIRCLE',8,'MOVEIS',10,p[0].toFixed(4),20,p[1].toFixed(4),30,0,40,(m.w/200).toFixed(4));
     else{const b=corpo(m);const pts=[[b.L,b.B],[b.R,b.B],[b.R,b.T],[b.L,b.T]].map(q=>rot(t,...q));for(let i=0;i<4;i++)line('MOVEIS',pts[i],pts[(i+1)%4])}
     text('MOVEIS',p,0.08,m.nome)});
+  const vist=new Set();
+  (c.moveis||[]).forEach(m=>cotasMovel(c,m).forEach(q=>{if(!q.invade&&(q.cm<1||q.cm>300))return;const k=[q.x1,q.y1,q.x2,q.y2].map(v=>Math.round(v*50)).sort().join();if(vist.has(k))return;vist.add(k);
+    const a=rot(t,q.x1,q.y1),b=rot(t,q.x2,q.y2);line('COTAS-MOVEIS',a,b);const u=[b[0]-a[0],b[1]-a[1]];let ang=Math.atan2(u[1],u[0])*180/Math.PI;if(ang>90.5)ang-=180;if(ang<-89.5)ang+=180;
+    text('COTAS-MOVEIS',[(a[0]+b[0])/2,(a[1]+b[1])/2],0.05,q.invade?'invade '+COTA_NOME[q.tipo]+' '+q.cm:q.tipo==='livre'?String(q.cm):q.cm+' ate '+COTA_NOME[q.tipo],ang)}));
 }
 /* ===================== meus móveis ===================== */
 function meusGet(){try{return JSON.parse(localStorage.getItem('medir_meus_moveis')||'[]')}catch(e){return[]}}
