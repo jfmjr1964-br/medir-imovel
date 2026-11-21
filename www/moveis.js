@@ -58,7 +58,7 @@ const CATALOGO=[
  ]},
 ];
 const CAT_IDX={}; CATALOGO.forEach(g=>g.itens.forEach(i=>CAT_IDX[i.id]=i));
-let movSel=null, catAberto=false, drag=null, mvFs=0.2;
+let movSel=null, catAberto=false, drag=null, mvFs=0.2, mvCotasLista=[], cotaEdit=null;
 
 function footprint(m){const r=((m.rot||0)%180+180)%180===90;return{w:(r?m.d:m.w)/100,d:(r?m.w:m.d)/100}}
 /* desenho de um móvel, em coordenadas do SVG (y invertido). x,y = centro em metros (mundo); ang = graus no sentido do mundo */
@@ -107,10 +107,11 @@ function moveisV(){
   h2+=`<div class="planbox">${s}</div>`;
   const todos=c.moveis.flatMap(m=>ia(m).av); const vist=new Set(); const lista=todos.filter(a=>!vist.has(a.t)&&vist.add(a.t));
   if(c.moveis.length) h2+= lista.length?`<div class="status ${lista.some(a=>a.n==='bad')?'bad':'warn'}"><b>${lista.length} aviso(s) neste cômodo</b>${lista.map(a=>`<div class="av ${a.n}">${esc(a.t)}</div>`).join('')}</div>`:`<div class="status ok"><b>Tudo cabe com conforto.</b></div>`;
-  h2+=`<p class="help">Arraste o móvel com o dedo. Perto da parede, ele encosta sozinho, inclusive em degraus e cantos da parede. Use as setas do ajuste fino para mexer de 1 em 1 cm. Faixa amarela: espaço livre com conforto. Laranja: apertado, mas dá. Vermelho: abaixo do mínimo. Toque num móvel para ver, em centímetros, quanto falta até a parede, o outro móvel, o fim da parede em que ele está encostado (onde ela faz a curva) ou a próxima porta, passagem ou janela.</p>`;
+  h2+=`<p class="help">Arraste o móvel com o dedo. Perto da parede, ele encosta sozinho, inclusive em degraus e cantos da parede. Use as setas do ajuste fino para mexer de 1 em 1 cm. Toque numa medida para digitar a distância que quiser, ou use Centralizar para pôr o móvel no meio. Faixa amarela: espaço livre com conforto. Laranja: apertado, mas dá. Vermelho: abaixo do mínimo. Toque num móvel para ver, em centímetros, quanto falta até a parede, o outro móvel, o fim da parede em que ele está encostado (onde ela faz a curva) ou a próxima porta, passagem ou janela.</p>`;
   if(sm){const fr=v=>esc(v);
     h2+=`<div class="card"><div class="row" style="align-items:center"><b style="flex:1">${esc(sm.nome)}</b><button class="ghost" data-a="movDesel">Fechar</button></div>
-      <div class="grid2" style="margin-top:6px"><button class="turn" data-a="movGirar">↻ Girar 90°</button><button data-a="movDup">Duplicar</button></div><div class="segrow" style="margin-top:6px"><span class="mini-l">Ajuste fino (1 cm)</span><button class="seg" data-a="movMv" data-v="-1,0">◀</button><button class="seg" data-a="movMv" data-v="0,1">▲</button><button class="seg" data-a="movMv" data-v="0,-1">▼</button><button class="seg" data-a="movMv" data-v="1,0">▶</button></div>
+      <div class="grid2" style="margin-top:6px"><button class="turn" data-a="movGirar">↻ Girar 90°</button><button data-a="movDup">Duplicar</button></div>${cotaEdit&&cotaEdit.mid===sm.id?`<div class="cotaed"><label>Distância ${COTA_TXT[cotaEdit.tipo]}${COTA_DIR[cotaEdit.dir.join()]}</label><div class="row"><input id="cotaV" inputmode="decimal" value="${cotaEdit.cm}"><span style="flex:none">cm</span><button class="pri" style="flex:none" data-a="cotaOk">Aplicar</button><button class="ghost" style="flex:none" data-a="cotaCancel">Cancelar</button></div></div>`:''}
+      <div class="segrow" style="margin-top:6px"><span class="mini-l">Centralizar</span><button class="seg" data-a="movCentro" data-v="x">↔ no meio</button><button class="seg" data-a="movCentro" data-v="y">↕ no meio</button></div><div class="segrow" style="margin-top:6px"><span class="mini-l">Ajuste fino (1 cm)</span><button class="seg" data-a="movMv" data-v="-1,0">◀</button><button class="seg" data-a="movMv" data-v="0,1">▲</button><button class="seg" data-a="movMv" data-v="0,-1">▼</button><button class="seg" data-a="movMv" data-v="1,0">▶</button></div>
       <div class="frm"><label>Nome</label><input id="mvNome" value="${fr(sm.nome)}">
       <div class="grid2"><div><label>${sm.forma==='redonda'?'Diâmetro':'Largura'} (cm)</label><input id="mvW" inputmode="decimal" value="${sm.w}"></div>${sm.forma==='redonda'?'<div></div>':`<div><label>Profundidade (cm)</label><input id="mvD" inputmode="decimal" value="${sm.d}"></div>`}</div>
       <label>Espaço livre para usar (cm)</label>
@@ -186,7 +187,9 @@ function movMover(m,dx,dy){m.x=Math.round((m.x+dx)*1000)/1000;m.y=Math.round((m.
 function svgPt(svg,ev){const p=svg.createSVGPoint();p.x=ev.clientX;p.y=ev.clientY;const q=p.matrixTransform(svg.getScreenCTM().inverse());return[q.x,-q.y]}
 function bindMoveis(){
   const svg=$('#mvsvg'); if(!svg) return;
-  svg.addEventListener('pointerdown',ev=>{const gEl=ev.target.closest('[data-mov]');const c=room();
+  svg.addEventListener('pointerdown',ev=>{const ce=ev.target.closest('[data-cota]');
+    if(ce){const q=mvCotasLista[+ce.dataset.cota];if(q&&movSel){cotaEdit={mid:movSel,dir:q.dir,tipo:q.tipo,cm:q.cm};render();setTimeout(()=>{const i=$('#cotaV');if(i){i.scrollIntoView({block:'center'});i.focus();i.select()}},50)}ev.preventDefault();return}
+    const gEl=ev.target.closest('[data-mov]');const c=room();
     if(!gEl){ if(movSel){movSel=null;render()} return }
     const m=c.moveis.find(x=>x.id===gEl.dataset.mov); if(!m)return;
     const p=svgPt(svg,ev); drag={m,dx:m.x-p[0],dy:m.y-p[1],moved:false,id:ev.pointerId};
@@ -208,9 +211,17 @@ function actMoveis(a,b){const im=cur(),c=room();const m=c&&c.moveis&&c.moveis.fi
     case 'voltarRoom':view={t:'room',im:im.id,room:c.id};movSel=null;return true;
     case 'catAbrir':catAberto=!catAberto;return true;
     case 'movAdd':movAdd(b.dataset.id);return true;
-    case 'movSel':movSel=b.dataset.id;window.scrollTo(0,0);return true;
-    case 'movDesel':movSel=null;return true;
+    case 'movSel':cotaEdit=null;movSel=b.dataset.id;window.scrollTo(0,0);return true;
+    case 'movDesel':cotaEdit=null;movSel=null;return true;
     case 'movGirar':if(m){m.rot=((m.rot||0)+90)%360;movSnap(c,m);save(im)}return true;
+    case 'cotaCancel':cotaEdit=null;return true;
+    case 'cotaOk':{if(!m||!cotaEdit)return true;const v=parseFloat(($('#cotaV').value||'').replace(',','.'));if(!(v>=0)){toast('Digite a distância em centímetros.');return true}
+      const atual=cotasMovel(c,m).find(q=>!q.invade&&q.tipo===cotaEdit.tipo&&q.dir.join()===cotaEdit.dir.join());const cm0=atual?atual.cm:cotaEdit.cm;
+      movMover(m,cotaEdit.dir[0]*(cm0-v)/100,cotaEdit.dir[1]*(cm0-v)/100);cotaEdit=null;save(im);return true}
+    case 'movCentro':{if(!m)return true;const ax=b.dataset.v==='x'?0:1;const qs=cotasMovel(c,m).filter(q=>!q.invade);
+      const menor=sg=>{const l=qs.filter(q=>q.dir[ax]===sg).map(q=>q.cm);return l.length?Math.min(...l):null};const a1=menor(-1),a2=menor(1);
+      if(a1===null||a2===null){toast('Não achei parede ou móvel dos dois lados para centralizar.');return true}
+      const sh=(a2-a1)/200;movMover(m,ax===0?sh:0,ax===1?sh:0);save(im);toast('No meio: '+Math.round((a1+a2)/2)+' cm de cada lado.');return true}
     case 'movMv':if(m){const[vx,vy]=b.dataset.v.split(',').map(Number);movMover(m,vx*0.01,vy*0.01);save(im)}return true;
     case 'movDup':if(m){const n={...m,uso:{...m.uso},id:uid(),x:m.x+0.3,y:m.y-0.3};c.moveis.push(n);movSel=n.id;save(im)}return true;
     case 'portaAbre':portaSet(im,c,b.dataset.k,'abre',b.dataset.v);save(im);return true;
@@ -265,7 +276,7 @@ function cotasMovel(c,m){
     const px=hz?face:cx, py=hz?cy:face;
     // a) até a parede ou o móvel em frente, saindo do meio do lado
     const dd=raio(px,py,dir,g.segs,outros,MAX);
-    if(dd<MAX-0.01) out.push({x1:px,y1:py,x2:px+dir[0]*dd,y2:py+dir[1]*dd,cm:Math.round(dd*100),tipo:'livre'});
+    if(dd<MAX-0.01) out.push({x1:px,y1:py,x2:px+dir[0]*dd,y2:py+dir[1]*dd,cm:Math.round(dd*100),tipo:'livre',dir});
     // c) ao longo de uma parede encostada: até o fim dela (onde faz a curva)
     [-1,1].forEach(lado=>{
       const lo=hz?b.B:b.L, hi=hz?b.T:b.R;
@@ -279,7 +290,7 @@ function cotasMovel(c,m){
       const sgn=hz?dir[0]:dir[1]; const fim=sgn>0?a1:a0; const dist=(fim-face)*sgn;
       if(dist<0.01||Math.abs(dist-dd)<0.03) return;
       const yv=lado<0?lo+0.12:hi-0.12;
-      out.push({x1:hz?face:yv,y1:hz?yv:face,x2:hz?face+dir[0]*dist:yv,y2:hz?yv:face+dir[1]*dist,cm:Math.round(dist*100),tipo:'fim'});
+      out.push({x1:hz?face:yv,y1:hz?yv:face,x2:hz?face+dir[0]*dist:yv,y2:hz?yv:face+dir[1]*dist,cm:Math.round(dist*100),tipo:'fim',dir});
     });
     // b) ao longo de uma parede encostada: até o começo da porta/passagem/janela
     aberturas.forEach(s=>{
@@ -290,31 +301,33 @@ function cotasMovel(c,m){
       const sgn=hz?dir[0]:dir[1]; const perto2=sgn>0?a0:a1; const dist=(perto2-face)*sgn;
       const cobre=Math.min(a1,hz?b.R:b.T)-Math.max(a0,hz?b.L:b.B);
       const yv=lado<0?lo+0.06:hi-0.06;
-      if(cobre>0.02){ if(sgn>0) out.push({x1:hz?Math.max(a0,b.L):yv,y1:hz?yv:Math.max(a0,b.B),x2:hz?Math.min(a1,b.R):yv,y2:hz?yv:Math.min(a1,b.T),cm:Math.round(cobre*100),tipo:s.tipo,invade:true}); return }
+      if(cobre>0.02){ if(sgn>0) out.push({x1:hz?Math.max(a0,b.L):yv,y1:hz?yv:Math.max(a0,b.B),x2:hz?Math.min(a1,b.R):yv,y2:hz?yv:Math.min(a1,b.T),cm:Math.round(cobre*100),tipo:s.tipo,invade:true,dir}); return }
       if(dist<-0.005||dist>MAX) return;
-      out.push({x1:hz?face:yv,y1:hz?yv:face,x2:hz?face+dir[0]*dist:yv,y2:hz?yv:face+dir[1]*dist,cm:Math.round(dist*100),tipo:s.tipo});
+      out.push({x1:hz?face:yv,y1:hz?yv:face,x2:hz?face+dir[0]*dist:yv,y2:hz?yv:face+dir[1]*dist,cm:Math.round(dist*100),tipo:s.tipo,dir});
     });
   });
   // se existe o fim da parede num sentido, não mostra a medida que passa da curva e vai até o fim do cômodo
-  const kd=q=>(q.x2-q.x1>1e-6?'r':q.x2-q.x1<-1e-6?'l':q.y2-q.y1>1e-6?'t':'b');
+  const kd=q=>q.dir.join();
   const comFim=new Set(out.filter(q=>q.tipo==='fim').map(kd));
   for(let i=out.length-1;i>=0;i--){const q=out[i];if(q.tipo==='livre'&&comFim.has(kd(q))){const f2=out.find(z=>z.tipo==='fim'&&kd(z)===kd(q));if(f2&&f2.cm<q.cm)out.splice(i,1)}}
   // só a abertura mais perto em cada sentido
-  const vist={}; return out.filter(q=>{if(q.tipo==='livre'||q.tipo==='fim'||q.invade)return true;const k=(q.x2-q.x1>0?'r':q.x2-q.x1<0?'l':q.y2-q.y1>0?'t':'b');if(vist[k]!==undefined&&vist[k]<=q.cm)return false;vist[k]=q.cm;return true})
-    .filter((q,i,arr)=>{if(q.tipo==='livre'||q.tipo==='fim'||q.invade)return true;const k=(q.x2-q.x1>0?'r':q.x2-q.x1<0?'l':q.y2-q.y1>0?'t':'b');return vist[k]===q.cm});
+  const vist={}; return out.filter(q=>{if(q.tipo==='livre'||q.tipo==='fim'||q.invade)return true;const k=q.dir.join();if(vist[k]!==undefined&&vist[k]<=q.cm)return false;vist[k]=q.cm;return true})
+    .filter((q,i,arr)=>{if(q.tipo==='livre'||q.tipo==='fim'||q.invade)return true;const k=q.dir.join();return vist[k]===q.cm});
 }
 const COTA_COR={livre:'#5b6475',fim:'#1f3a5f',porta:'#d9822b',passagem:'#2e7d32',janela:'#2e7bd6'};
+const COTA_TXT={livre:'até a parede ou móvel em frente',fim:'até o fim da parede',porta:'até a porta',passagem:'até a passagem',janela:'até a janela'};
+const COTA_DIR={'1,0':' (→)','-1,0':' (←)','0,1':' (↑)','0,-1':' (↓)'};
 const COTA_NOME={fim:'fim da parede',porta:'porta',passagem:'passagem',janela:'janela'};
 function svgCotas(c,m,fs){
-  let o=''; const sw=fs*0.06, f=fs*0.55;
-  cotasMovel(c,m).forEach(q=>{const cor=q.invade?'#d92d20':COTA_COR[q.tipo];const hz=Math.abs(q.y1-q.y2)<1e-6;
+  let o=''; const sw=fs*0.06, f=fs*0.55; mvCotasLista=cotasMovel(c,m);
+  mvCotasLista.forEach((q,qi)=>{const cor=q.invade?'#d92d20':COTA_COR[q.tipo];const hz=Math.abs(q.y1-q.y2)<1e-6;
     const tk=fs*0.18; const t1=hz?`M ${q.x1} ${-q.y1-tk} V ${-q.y1+tk} M ${q.x2} ${-q.y2-tk} V ${-q.y2+tk}`:`M ${q.x1-tk} ${-q.y1} H ${q.x1+tk} M ${q.x2-tk} ${-q.y2} H ${q.x2+tk}`;
     o+=`<path d="M ${q.x1} ${-q.y1} L ${q.x2} ${-q.y2} ${t1}" stroke="${cor}" stroke-width="${sw}" fill="none" ${q.invade?'':`stroke-dasharray="${fs*0.2} ${fs*0.12}"`}/>`;
     if(q.cm<1&&!q.invade) return;
     const txt=q.invade?`invade ${COTA_NOME[q.tipo]} ${q.cm}`:q.tipo==='livre'?`${q.cm}`:`${q.cm} até ${COTA_NOME[q.tipo]}`;
     const w2=txt.length*f*0.55+f*0.4; const len=Math.hypot(q.x2-q.x1,q.y2-q.y1); let mx=(q.x1+q.x2)/2, my=(q.y1+q.y2)/2;
     if(len<w2&&len>1e-6){const ux=(q.x2-q.x1)/len,uy=(q.y2-q.y1)/len;mx=q.x2+ux*(w2/2+f*0.3);my=q.y2+uy*(w2/2+f*0.3)}
-    o+=`<g transform="translate(${mx} ${-my})${hz?'':' rotate(-90)'}"><rect x="${-w2/2}" y="${-f*0.65}" width="${w2}" height="${f*1.3}" rx="${f*0.3}" fill="#fff" fill-opacity=".92" stroke="${cor}" stroke-width="${sw*0.7}"/><text x="0" y="0" font-size="${f}" text-anchor="middle" dominant-baseline="central" fill="${cor}" font-family="sans-serif" font-weight="700">${txt}</text></g>`});
+    o+=`<g ${q.invade?'':`data-cota="${qi}" style="pointer-events:auto;cursor:pointer"`} transform="translate(${mx} ${-my})${hz?'':' rotate(-90)'}"><rect x="${-w2/2}" y="${-f*0.65}" width="${w2}" height="${f*1.3}" rx="${f*0.3}" fill="#fff" fill-opacity=".92" stroke="${cor}" stroke-width="${sw*0.7}"/><text x="0" y="0" font-size="${f}" text-anchor="middle" dominant-baseline="central" fill="${cor}" font-family="sans-serif" font-weight="700">${txt}</text></g>`});
   return o;
 }
 function avisosMoveis(c){
