@@ -107,7 +107,7 @@ function moveisV(){
   h2+=`<div class="planbox">${s}</div>`;
   const todos=c.moveis.flatMap(m=>ia(m).av); const vist=new Set(); const lista=todos.filter(a=>!vist.has(a.t)&&vist.add(a.t));
   if(c.moveis.length) h2+= lista.length?`<div class="status ${lista.some(a=>a.n==='bad')?'bad':'warn'}"><b>${lista.length} aviso(s) neste cômodo</b>${lista.map(a=>`<div class="av ${a.n}">${esc(a.t)}</div>`).join('')}</div>`:`<div class="status ok"><b>Tudo cabe com conforto.</b></div>`;
-  h2+=`<p class="help">Arraste o móvel com o dedo. Perto da parede, ele encosta sozinho. Faixa amarela: espaço livre com conforto. Laranja: apertado, mas dá. Vermelho: abaixo do mínimo. Toque num móvel para ver, em centímetros, quanto falta até a parede, o outro móvel ou a próxima porta, passagem ou janela.</p>`;
+  h2+=`<p class="help">Arraste o móvel com o dedo. Perto da parede, ele encosta sozinho. Faixa amarela: espaço livre com conforto. Laranja: apertado, mas dá. Vermelho: abaixo do mínimo. Toque num móvel para ver, em centímetros, quanto falta até a parede, o outro móvel, o fim da parede em que ele está encostado (onde ela faz a curva) ou a próxima porta, passagem ou janela.</p>`;
   if(sm){const fr=v=>esc(v);
     h2+=`<div class="card"><div class="row" style="align-items:center"><b style="flex:1">${esc(sm.nome)}</b><button class="ghost" data-a="movDesel">Fechar</button></div>
       <div class="grid2" style="margin-top:6px"><button class="turn" data-a="movGirar">↻ Girar 90°</button><button data-a="movDup">Duplicar</button></div>
@@ -237,6 +237,21 @@ function cotasMovel(c,m){
     // a) até a parede ou o móvel em frente, saindo do meio do lado
     const dd=raio(px,py,dir,g.segs,outros,MAX);
     if(dd<MAX-0.01) out.push({x1:px,y1:py,x2:px+dir[0]*dd,y2:py+dir[1]*dd,cm:Math.round(dd*100),tipo:'livre'});
+    // c) ao longo de uma parede encostada: até o fim dela (onde faz a curva)
+    [-1,1].forEach(lado=>{
+      const lo=hz?b.B:b.L, hi=hz?b.T:b.R;
+      const cand=g.segs.filter(s=>hz?Math.abs(s.y1-s.y2)<1e-6:Math.abs(s.x1-s.x2)<1e-6).filter(s=>{const lin=hz?s.y1:s.x1;return lado<0?(lin<=lo+0.01&&lo-lin<=PERTO):(lin>=hi-0.01&&lin-hi<=PERTO)});
+      if(!cand.length) return;
+      const lin0=hz?cand[0].y1:cand[0].x1; const mesma=cand.filter(s=>Math.abs((hz?s.y1:s.x1)-lin0)<0.01).map(s=>hz?[Math.min(s.x1,s.x2),Math.max(s.x1,s.x2)]:[Math.min(s.y1,s.y2),Math.max(s.y1,s.y2)]).sort((p,q)=>p[0]-q[0]);
+      const m0=hz?b.L:b.B, m1=hz?b.R:b.T; let i=mesma.findIndex(p=>p[1]>m0+0.02&&p[0]<m1-0.02); if(i<0) return;
+      let a0=mesma[i][0],a1=mesma[i][1];
+      for(let j=i+1;j<mesma.length&&mesma[j][0]<=a1+0.02;j++)a1=Math.max(a1,mesma[j][1]);
+      for(let j=i-1;j>=0&&mesma[j][1]>=a0-0.02;j--)a0=Math.min(a0,mesma[j][0]);
+      const sgn=hz?dir[0]:dir[1]; const fim=sgn>0?a1:a0; const dist=(fim-face)*sgn;
+      if(dist<0.01||Math.abs(dist-dd)<0.03) return;
+      const yv=lado<0?lo+0.12:hi-0.12;
+      out.push({x1:hz?face:yv,y1:hz?yv:face,x2:hz?face+dir[0]*dist:yv,y2:hz?yv:face+dir[1]*dist,cm:Math.round(dist*100),tipo:'fim'});
+    });
     // b) ao longo de uma parede encostada: até o começo da porta/passagem/janela
     aberturas.forEach(s=>{
       const par=hz?Math.abs(s.y1-s.y2)<1e-6:Math.abs(s.x1-s.x2)<1e-6; if(!par) return;
@@ -251,12 +266,16 @@ function cotasMovel(c,m){
       out.push({x1:hz?face:yv,y1:hz?yv:face,x2:hz?face+dir[0]*dist:yv,y2:hz?yv:face+dir[1]*dist,cm:Math.round(dist*100),tipo:s.tipo});
     });
   });
+  // se existe o fim da parede num sentido, não mostra a medida que passa da curva e vai até o fim do cômodo
+  const kd=q=>(q.x2-q.x1>1e-6?'r':q.x2-q.x1<-1e-6?'l':q.y2-q.y1>1e-6?'t':'b');
+  const comFim=new Set(out.filter(q=>q.tipo==='fim').map(kd));
+  for(let i=out.length-1;i>=0;i--){const q=out[i];if(q.tipo==='livre'&&comFim.has(kd(q))){const f2=out.find(z=>z.tipo==='fim'&&kd(z)===kd(q));if(f2&&f2.cm<q.cm)out.splice(i,1)}}
   // só a abertura mais perto em cada sentido
-  const vist={}; return out.filter(q=>{if(q.tipo==='livre'||q.invade)return true;const k=(q.x2-q.x1>0?'r':q.x2-q.x1<0?'l':q.y2-q.y1>0?'t':'b');if(vist[k]!==undefined&&vist[k]<=q.cm)return false;vist[k]=q.cm;return true})
-    .filter((q,i,arr)=>{if(q.tipo==='livre'||q.invade)return true;const k=(q.x2-q.x1>0?'r':q.x2-q.x1<0?'l':q.y2-q.y1>0?'t':'b');return vist[k]===q.cm});
+  const vist={}; return out.filter(q=>{if(q.tipo==='livre'||q.tipo==='fim'||q.invade)return true;const k=(q.x2-q.x1>0?'r':q.x2-q.x1<0?'l':q.y2-q.y1>0?'t':'b');if(vist[k]!==undefined&&vist[k]<=q.cm)return false;vist[k]=q.cm;return true})
+    .filter((q,i,arr)=>{if(q.tipo==='livre'||q.tipo==='fim'||q.invade)return true;const k=(q.x2-q.x1>0?'r':q.x2-q.x1<0?'l':q.y2-q.y1>0?'t':'b');return vist[k]===q.cm});
 }
-const COTA_COR={livre:'#5b6475',porta:'#d9822b',passagem:'#2e7d32',janela:'#2e7bd6'};
-const COTA_NOME={porta:'porta',passagem:'passagem',janela:'janela'};
+const COTA_COR={livre:'#5b6475',fim:'#1f3a5f',porta:'#d9822b',passagem:'#2e7d32',janela:'#2e7bd6'};
+const COTA_NOME={fim:'fim da parede',porta:'porta',passagem:'passagem',janela:'janela'};
 function svgCotas(c,m,fs){
   let o=''; const sw=fs*0.06, f=fs*0.55;
   cotasMovel(c,m).forEach(q=>{const cor=q.invade?'#d92d20':COTA_COR[q.tipo];const hz=Math.abs(q.y1-q.y2)<1e-6;
@@ -264,7 +283,8 @@ function svgCotas(c,m,fs){
     o+=`<path d="M ${q.x1} ${-q.y1} L ${q.x2} ${-q.y2} ${t1}" stroke="${cor}" stroke-width="${sw}" fill="none" ${q.invade?'':`stroke-dasharray="${fs*0.2} ${fs*0.12}"`}/>`;
     if(q.cm<1&&!q.invade) return;
     const txt=q.invade?`invade ${COTA_NOME[q.tipo]} ${q.cm}`:q.tipo==='livre'?`${q.cm}`:`${q.cm} até ${COTA_NOME[q.tipo]}`;
-    const mx=(q.x1+q.x2)/2, my=(q.y1+q.y2)/2; const w2=txt.length*f*0.55+f*0.4;
+    const w2=txt.length*f*0.55+f*0.4; const len=Math.hypot(q.x2-q.x1,q.y2-q.y1); let mx=(q.x1+q.x2)/2, my=(q.y1+q.y2)/2;
+    if(len<w2&&len>1e-6){const ux=(q.x2-q.x1)/len,uy=(q.y2-q.y1)/len;mx=q.x2+ux*(w2/2+f*0.3);my=q.y2+uy*(w2/2+f*0.3)}
     o+=`<g transform="translate(${mx} ${-my})${hz?'':' rotate(-90)'}"><rect x="${-w2/2}" y="${-f*0.65}" width="${w2}" height="${f*1.3}" rx="${f*0.3}" fill="#fff" fill-opacity=".92" stroke="${cor}" stroke-width="${sw*0.7}"/><text x="0" y="0" font-size="${f}" text-anchor="middle" dominant-baseline="central" fill="${cor}" font-family="sans-serif" font-weight="700">${txt}</text></g>`});
   return o;
 }
