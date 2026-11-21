@@ -107,10 +107,10 @@ function moveisV(){
   h2+=`<div class="planbox">${s}</div>`;
   const todos=c.moveis.flatMap(m=>ia(m).av); const vist=new Set(); const lista=todos.filter(a=>!vist.has(a.t)&&vist.add(a.t));
   if(c.moveis.length) h2+= lista.length?`<div class="status ${lista.some(a=>a.n==='bad')?'bad':'warn'}"><b>${lista.length} aviso(s) neste cômodo</b>${lista.map(a=>`<div class="av ${a.n}">${esc(a.t)}</div>`).join('')}</div>`:`<div class="status ok"><b>Tudo cabe com conforto.</b></div>`;
-  h2+=`<p class="help">Arraste o móvel com o dedo. Perto da parede, ele encosta sozinho. Faixa amarela: espaço livre com conforto. Laranja: apertado, mas dá. Vermelho: abaixo do mínimo. Toque num móvel para ver, em centímetros, quanto falta até a parede, o outro móvel, o fim da parede em que ele está encostado (onde ela faz a curva) ou a próxima porta, passagem ou janela.</p>`;
+  h2+=`<p class="help">Arraste o móvel com o dedo. Perto da parede, ele encosta sozinho, inclusive em degraus e cantos da parede. Use as setas do ajuste fino para mexer de 1 em 1 cm. Faixa amarela: espaço livre com conforto. Laranja: apertado, mas dá. Vermelho: abaixo do mínimo. Toque num móvel para ver, em centímetros, quanto falta até a parede, o outro móvel, o fim da parede em que ele está encostado (onde ela faz a curva) ou a próxima porta, passagem ou janela.</p>`;
   if(sm){const fr=v=>esc(v);
     h2+=`<div class="card"><div class="row" style="align-items:center"><b style="flex:1">${esc(sm.nome)}</b><button class="ghost" data-a="movDesel">Fechar</button></div>
-      <div class="grid2" style="margin-top:6px"><button class="turn" data-a="movGirar">↻ Girar 90°</button><button data-a="movDup">Duplicar</button></div>
+      <div class="grid2" style="margin-top:6px"><button class="turn" data-a="movGirar">↻ Girar 90°</button><button data-a="movDup">Duplicar</button></div><div class="segrow" style="margin-top:6px"><span class="mini-l">Ajuste fino (1 cm)</span><button class="seg" data-a="movMv" data-v="-1,0">◀</button><button class="seg" data-a="movMv" data-v="0,1">▲</button><button class="seg" data-a="movMv" data-v="0,-1">▼</button><button class="seg" data-a="movMv" data-v="1,0">▶</button></div>
       <div class="frm"><label>Nome</label><input id="mvNome" value="${fr(sm.nome)}">
       <div class="grid2"><div><label>${sm.forma==='redonda'?'Diâmetro':'Largura'} (cm)</label><input id="mvW" inputmode="decimal" value="${sm.w}"></div>${sm.forma==='redonda'?'<div></div>':`<div><label>Profundidade (cm)</label><input id="mvD" inputmode="decimal" value="${sm.d}"></div>`}</div>
       <label>Espaço livre para usar (cm)</label>
@@ -147,14 +147,42 @@ function movSnap(c,m,girar){
   const w0=ws[0];
   if(girar&&m.forma!=='redonda'&&!SOLTOS.has(m.cat)&&!((m.uso||{}).t)){
     const alvo={'0,1':0,'1,0':270,'-1,0':90,'0,-1':180}[w0.dir.join()];
-    if(alvo!==undefined&&alvo!==(m.rot||0)){m.rot=alvo;const again=distParedes(c,m).filter(o=>o.dir.join()===w0.dir.join()).sort((x,y)=>Math.abs(x.d)-Math.abs(y.d));if(again[0])encostar(m,again[0]);else encostar(m,w0)}
-    else encostar(m,w0);
-  } else encostar(m,w0);
-  /* no outro sentido, só gruda se estiver bem perto (canto) */
-  const eixo=w0.dir[0]!==0?1:0;
-  const ws2=distParedes(c,m).filter(o=>o.dir[eixo]!==0&&o.d<=0.15).sort((x,y)=>Math.abs(x.d)-Math.abs(y.d));
-  if(ws2[0]) encostar(m,ws2[0]);
+    if(alvo!==undefined&&alvo!==(m.rot||0)) m.rot=alvo;
+  }
+  if(encaixar(c,m,tol)||encaixar(c,m,tol,true)) return;
+  /* se não achou encaixe livre, faz como antes: encosta na parede mais perto */
+  const again=distParedes(c,m).filter(o=>o.d<=tol).sort((x,y)=>Math.abs(x.d)-Math.abs(y.d));
+  if(again[0]) encostar(m,again[0]);
 }
+/* procura a posição mais perto onde o móvel encosta nas paredes sem atravessar nenhuma (serve para degraus, nichos e cantos) */
+function cruzaParede(g,b){return g.segs.some(s=>{const x0=Math.min(s.x1,s.x2),x1=Math.max(s.x1,s.x2),y0=Math.min(s.y1,s.y2),y1=Math.max(s.y1,s.y2);
+  if(Math.abs(x1-x0)<1e-6) return x0>b.L+0.003&&x0<b.R-0.003&&Math.min(y1,b.T)-Math.max(y0,b.B)>0.003;
+  return y0>b.B+0.003&&y0<b.T-0.003&&Math.min(x1,b.R)-Math.max(x0,b.L)>0.003})}
+function encaixar(c,m,tol,soParedes){
+  const g=geo(c); if(!g.segs.length) return false; const fp=footprint(m); const poly=g.segs.map(s=>[s.x1,s.y1]);
+  const xs=[{v:m.x,w:0}], ys=[{v:m.y,w:0}];
+  g.segs.forEach(s=>{
+    if(Math.abs(s.x1-s.x2)<1e-6){const y0=Math.min(s.y1,s.y2),y1=Math.max(s.y1,s.y2); if(y1<m.y-fp.d/2-tol||y0>m.y+fp.d/2+tol) return;
+      [s.x1-fp.w/2,s.x1+fp.w/2].forEach(v=>{if(Math.abs(v-m.x)<=tol)xs.push({v,w:1})})}
+    else {const x0=Math.min(s.x1,s.x2),x1=Math.max(s.x1,s.x2); if(x1<m.x-fp.w/2-tol||x0>m.x+fp.w/2+tol) return;
+      [s.y1-fp.d/2,s.y1+fp.d/2].forEach(v=>{if(Math.abs(v-m.y)<=tol)ys.push({v,w:1})})}
+  });
+  const outros=soParedes?[]:(c.moveis||[]).filter(o=>o.id!==m.id).map(corpo);
+  outros.forEach(r=>{ if(!(r.T<m.y-fp.d/2-tol||r.B>m.y+fp.d/2+tol)) [r.L-fp.w/2,r.R+fp.w/2].forEach(v=>{if(Math.abs(v-m.x)<=tol)xs.push({v,w:0.5})});
+    if(!(r.R<m.x-fp.w/2-tol||r.L>m.x+fp.w/2+tol)) [r.B-fp.d/2,r.T+fp.d/2].forEach(v=>{if(Math.abs(v-m.y)<=tol)ys.push({v,w:0.5})}) });
+  let best=null;
+  xs.forEach(X=>ys.forEach(Y=>{
+    const b={L:X.v-fp.w/2,R:X.v+fp.w/2,B:Y.v-fp.d/2,T:Y.v+fp.d/2};
+    const pts=[[b.L+0.004,b.B+0.004],[b.R-0.004,b.B+0.004],[b.R-0.004,b.T-0.004],[b.L+0.004,b.T-0.004],[X.v,Y.v]];
+    if(pts.some(p=>!dentro(poly,p[0],p[1]))||cruzaParede(g,b)) return;
+    if(outros.some(r=>Math.min(b.R,r.R)-Math.max(b.L,r.L)>0.005&&Math.min(b.T,r.T)-Math.max(b.B,r.B)>0.005)) return;
+    const toque=X.w+Y.w; if(!toque) return;
+    const custo=Math.hypot(X.v-m.x,Y.v-m.y)-toque*0.12;
+    if(!best||custo<best.custo) best={x:X.v,y:Y.v,custo};
+  }));
+  if(!best) return false; m.x=best.x; m.y=best.y; return true;
+}
+function movMover(m,dx,dy){m.x=Math.round((m.x+dx)*1000)/1000;m.y=Math.round((m.y+dy)*1000)/1000}
 function svgPt(svg,ev){const p=svg.createSVGPoint();p.x=ev.clientX;p.y=ev.clientY;const q=p.matrixTransform(svg.getScreenCTM().inverse());return[q.x,-q.y]}
 function bindMoveis(){
   const svg=$('#mvsvg'); if(!svg) return;
@@ -183,6 +211,7 @@ function actMoveis(a,b){const im=cur(),c=room();const m=c&&c.moveis&&c.moveis.fi
     case 'movSel':movSel=b.dataset.id;window.scrollTo(0,0);return true;
     case 'movDesel':movSel=null;return true;
     case 'movGirar':if(m){m.rot=((m.rot||0)+90)%360;movSnap(c,m);save(im)}return true;
+    case 'movMv':if(m){const[vx,vy]=b.dataset.v.split(',').map(Number);movMover(m,vx*0.01,vy*0.01);save(im)}return true;
     case 'movDup':if(m){const n={...m,uso:{...m.uso},id:uid(),x:m.x+0.3,y:m.y-0.3};c.moveis.push(n);movSel=n.id;save(im)}return true;
     case 'portaAbre':portaSet(im,c,b.dataset.k,'abre',b.dataset.v);save(im);return true;
     case 'portaDob':portaSet(im,c,b.dataset.k,'dob',b.dataset.v);save(im);return true;
